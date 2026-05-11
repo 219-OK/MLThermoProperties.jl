@@ -1,5 +1,7 @@
 @testitem "GRAPPA" begin
-    using PythonCall, Clapeyron
+    #using PythonCall
+    using MLThermoProperties
+    using Clapeyron
 
     # Compare to https://ml-prop.mv.rptu.de
     model1 = GRAPPA("ethanol")

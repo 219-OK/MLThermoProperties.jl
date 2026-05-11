@@ -1,7 +1,8 @@
 include("utils.jl")
 
 include("ese.jl")
-include("grappa.jl")
+#include("grappa_python.jl")
+include("GRAPPA/main.jl")
 include("HANNA/hanna.jl")
 
 # Show method
