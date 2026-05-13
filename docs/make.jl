@@ -1,7 +1,15 @@
 using Documenter
 using DocumenterVitepress
 using DocumenterCitations
+using Literate
 using MLThermoProperties, Clapeyron
+
+## Generate tutorial markdown from Literate sources
+Literate.markdown(
+    joinpath(@__DIR__, "src", "tutorials", "px_diagram.jl"),
+    joinpath(@__DIR__, "src", "tutorials");
+    documenter = true,
+)
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
@@ -13,9 +21,11 @@ makedocs(;
         devurl = "dev",
     ),
     pages = [
-        "Tutorials" => "tutorials.md",
+        "Tutorials" => [
+            "p-x Diagram with HANNA" => "tutorials/px_diagram.md",
+        ],
         "Models" => "models.md",
-        "References" => "references.md"
+        "References" => "references.md",
     ],
     plugins=[bib]
 )
