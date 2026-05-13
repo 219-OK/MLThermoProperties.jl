@@ -1,9 +1,9 @@
 # # Computing a p-x Diagram with the HANNA model
 #
-# This tutorial shows how to compute and visualize an isobaric p-x-y diagram for a binary mixture. 
+# This tutorial shows how to compute and visualize an isothermal p-x-y diagram for a binary mixture.
 # We use the **HANNA model** [specht_hanna_2024](@cite) (`ogHANNA`) to predict the activity coefficients and couple it to the **Peng-Robinson EOS** (`PR`) for pure-component saturation pressures.
 #
-# As an example system we use the system **ethanol (1) + benzene (2)** at T = 333.15 K, a classic mixture with a high-boiling azeotrope.
+# As an example system we use the system **ethanol (1) + benzene (2)** at T = 333.15 K, a classic mixture with a low-boiling azeotrope.
 #
 # ## Setup
 #
@@ -22,8 +22,7 @@ model = ogHANNA(["ethanol", "benzene"]; puremodel = PR)
 # ## Checking activity coefficients
 #
 # Before running phase-equilibrium calculations we verify that the model returns physically
-# reasonable activity coefficients at an equimolar composition.  Both γᵢ > 1 indicates
-# positive deviation from Raoult's law, consistent with the ethanol/benzene system.
+# reasonable activity coefficients at an equimolar composition.  Both γᵢ > 1 is consistent with the low-boiling (minimum-pressure) azeotrope behaviour of this system.
 
 T = 333.15  ## K  (60 °C)
 γ = activity_coefficient(model, 1e5, T, [0.5, 0.5])
@@ -32,7 +31,7 @@ T = 333.15  ## K  (60 °C)
 
 # ## Computing the p-x-y diagram
 #
-# We scan liquid compositions ``x_2 \in [0, 1]\; \rm{mol\,mol^{-1}}``` and use Clapeyron's `bubble_pressure` solver at each point (see also its documentation [here](https://clapeyronthermo.github.io/Clapeyron.jl/stable/properties/multi/#Clapeyron.bubble_pressure)). 
+# We scan liquid compositions ``x_2 \in [0, 1]\; \rm{mol\,mol^{-1}}`` and use Clapeyron's `bubble_pressure` solver at each point (see also its documentation [here](https://clapeyronthermo.github.io/Clapeyron.jl/stable/properties/multi/#Clapeyron.bubble_pressure)).
 # The function returns `(p, v_l, v_v, y)` where `y` is the equilibrium vapour composition.
 
 N  = 100
@@ -63,5 +62,5 @@ lines!(ax, y2s, p_bub./1e3; label = "dew curve", color=:blue)
 Legend(fig[1,2], ax, framevisible=false)
 fig
 
-# The azeotrope appears at ``x_1 \approx 0.44 \; \rm{mol\,mol^{-1}}`` and ``p \approx 78.7 \; \rm{kPa}``. 
+# The azeotrope appears at ``x_2 \approx 0.56 \; \rm{mol\,mol^{-1}}`` and ``p \approx 78.7 \; \rm{kPa}``. 
 # The `ogHANNA` model recovers this non-ideal behaviour from SMILES alone, without system-specific fitted parameters.
