@@ -1,22 +1,3 @@
-"""
-    Bond feature extraction using MolecularGraph.jl
-
-Mirrors the RDKit `bond_feature` / `get_all_bond_features` from `bond_features.py`.
-
-Feature vector per bond (length 9):
-  [1]  is single bond
-  [2]  is double bond
-  [3]  is triple bond
-  [4]  is aromatic bond
-  [5]  is conjugated
-  [6]  is in ring
-  [7-9] one-hot stereo encoding (NONE, Z, E)
-"""
-module BondFeatures
-
-using MolecularGraph
-using Graphs
-
 export get_all_bond_features, bond_feature_labels, is_conjugated
 
 ## Bond stereo categories (matching RDKit's possible_stereo list)
@@ -161,5 +142,3 @@ end
 Convenience method: parse a SMILES string, then extract bond features.
 """
 get_all_bond_features(smiles::AbstractString) = get_all_bond_features(smilestomol(smiles))
-
-end # module

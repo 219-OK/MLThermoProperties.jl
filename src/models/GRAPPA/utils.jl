@@ -1,16 +1,3 @@
-using GNNGraphs: GNNGraph
-using Graphs
-using Lux
-using LuxCore
-using MolecularGraph
-using Random
-using Statistics
-
-include("../../utils/bond_features.jl")
-using .BondFeatures
-
-#include("../../layers/utils.jl")
-
 const GRAPPA_ATOMS = [:C, :N, :O, :Cl, :S, :F, :Br, :I, :P]
 const GRAPPA_HYB = [:S, :SP, :SP2, :SP3]
 const GRAPPA_BONDS = [0, 1, 2, 3, 4]
@@ -77,7 +64,7 @@ end
 
 
 function bond_feature(mol)
-    raw_features = BondFeatures.get_all_bond_features(mol)
+    raw_features = get_all_bond_features(mol)
     features = copy(raw_features')
     return features
 end
