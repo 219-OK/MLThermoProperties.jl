@@ -53,7 +53,7 @@ CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/m
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
 
 function ESE(components;
-        vismodel = RefpropRESModel,             # TODO switch to GC model,
+        vismodel = RefpropRES,
         userlocations = String[],
         vis_userlocations = String[],
         verbose = false,
@@ -67,7 +67,6 @@ function ESE(components;
         userlocations,ignore_headers=["dipprnumber","inchikey","cas","canonicalsmiles","Mw"])
 
     smiles = _params["SMILES"].values
-    descs = get_descriptors.(smiles)
 
     nn = ESELux()
     ps, st = load(joinpath(get_model_path(ESE),"parameters_states_ensemble.jld2"), "ps", "st")
