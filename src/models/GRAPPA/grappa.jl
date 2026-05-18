@@ -17,6 +17,42 @@ struct GRAPPA{T} <: GRAPPAModel{T}
     references::Array{String, 1}
 end
 
+"""
+    GRAPPA{T} <: SaturationModel
+    
+    GRAPPA(
+        components;
+        userlocations = String[],
+        verbose::Bool=false
+    )
+
+## Description
+
+GRAPPA model for calculating vapor pressure of pure components based on the Antoine equation.
+On model construction, the Antoine parameters are predicted using a Python implementation the GRAPPA model.
+
+For predicting the Antoine parameters, only the smiles of the molecule is required.
+It will automatically be retrieved from the `Clapeyron.jl` database.
+The smiles can also be provided by the `userlocations` keyword (see example below). 
+
+## Example
+
+```julia
+using Clapeyron, PythonCall
+
+model = GRAPPA("propanol")
+model = GRAPPA("propanol"; userlocations=(; smiles="CCCO"))
+
+ps, _, _ = saturation_pressure(model, 300.)         # Vapor pressure at 300 K
+```
+
+## References
+
+1.  M. Hoffmann, H. Hasse, and F. Jirasek: GRAPPA—A Hybrid Graph Neural Network for Predicting Pure Component Vapor Pressures, Chemical Engineering Journal Advances 22 (2025) 100750, DOI: https://doi.org/10.1016/j.ceja.2025.100750.
+
+"""
+GRAPPA
+
 CL.default_locations(::Type{GRAPPA}) = ["properties/critical.csv", "properties/identifiers.csv"]
 get_model_path(::Type{GRAPPA}) = joinpath(DB_PATH, "GRAPPA")
 
