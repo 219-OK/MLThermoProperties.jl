@@ -3,7 +3,7 @@ module MLThermoProperties
 using JLD2, ConcreteStructs, LinearAlgebra, Random
 using Clapeyron, Lux, ChemBERTa, JLD2, EntropyScaling
 
-using NNlib, LuxCore, Statistics, GNNLux, Graphs, MolecularGraph
+using NNlib, LuxCore, Statistics, Graphs, MolecularGraph, GNNlib
 using GNNGraphs: GNNGraph
 
 const CL = Clapeyron

@@ -1,6 +1,6 @@
 include("utils.jl")
 include("layers_grappa.jl")
-
+include("grappa_python.jl")
 
 abstract type GRAPPAModel{T} <: CL.SaturationModel end
 
