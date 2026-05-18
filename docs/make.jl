@@ -2,7 +2,7 @@ using Documenter
 using DocumenterVitepress
 using DocumenterCitations
 using Literate
-using MLThermoProperties, Clapeyron
+using MLThermoProperties, ChemBERTa, Clapeyron
 
 ## Generate tutorial markdown from Literate sources
 Literate.markdown(

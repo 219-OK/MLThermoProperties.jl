@@ -57,3 +57,9 @@ It only requires the SMILES of the solute and solvent as input, together with a 
 ```@docs
 MLThermoProperties.ESE
 ```
+
+## Other Models
+
+```@docs
+ChemBERTa.ChemBERTaModel
+```

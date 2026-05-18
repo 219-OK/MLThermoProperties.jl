@@ -123,6 +123,32 @@ function (bert::BERT)((in_idx, in_type)::Tuple{<:AbstractArray, <:AbstractArray}
     )
 end
 
+"""
+    ChembBERTaModel
+
+A customized version of [ChemBERTa-77M-MTR](https://huggingface.co/DeepChem/ChemBERTa-77M-MTR).
+The tokenizer is differs from the original version.
+See [specht_hanna_2024](@cite) for details.
+
+## Usage
+
+```julia
+using ChemBERTa
+smiles = "CCCO"
+
+# Loading the ChemBERTa model
+bert = ChemBERTa.load()
+
+# Calculating the embedding for a given SMILES
+embedding = bert(smiles)
+```
+
+## Documentation
+
+
+"""
+ChemBERTaModel
+
 struct ChemBERTaModel
     smodel::StatefulLuxLayer
     tokenizer::ChemBERTaTokenizer

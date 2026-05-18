@@ -35,7 +35,7 @@ end
 ESE model for calculating diffusion coefficients at infinite dilution.
 The diffusion coefficient at infinite dilution can be calculated by calling [`inf_diffusion_coefficient`](https://se-schmitt.github.io/EntropyScaling.jl/stable/).
 
-If no viscosity model is specified, a `GCESModel` from `EntropyScaling.jl` is constructed (if possible).
+If no viscosity model is specified, a `RefpropRES` from `EntropyScaling.jl` is constructed (if possible).
 A constant viscosity model can also be used if the viscosity η is knwon as `ESE(...; vismodel=ConstantModel(Viscosity(), η))`.
 
 ## Examples
@@ -53,7 +53,7 @@ CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/m
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
 
 function ESE(components;
-        vismodel = RefpropRESModel,             # TODO switch to GC model,
+        vismodel = RefpropRES,
         userlocations = String[],
         vis_userlocations = String[],
         verbose = false,

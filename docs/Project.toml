@@ -2,6 +2,7 @@ name = "MLThermoPropertiesDocs"
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ChemBERTa = "c6d5ccb6-415a-469b-bc0e-e5c43fa6df39"
 Clapeyron = "7c7805af-46cc-48c9-995b-ed0ed2dc909a"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
