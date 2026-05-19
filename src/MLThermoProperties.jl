@@ -3,6 +3,9 @@ module MLThermoProperties
 using JLD2, ConcreteStructs, LinearAlgebra, Random
 using Clapeyron, Lux, ChemBERTa, JLD2, EntropyScaling
 
+using NNlib, LuxCore, Statistics, Graphs, MolecularGraph, GNNlib
+using GNNGraphs: GNNGraph
+
 const CL = Clapeyron
 const ES = EntropyScaling
 
@@ -20,4 +23,6 @@ include("layers/layers.jl")
 # Models
 include("models/models.jl")
 
+# Bond Features for GRAPPA
+include("utils/bond_features.jl")
 end

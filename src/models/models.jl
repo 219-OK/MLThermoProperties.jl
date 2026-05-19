@@ -1,7 +1,7 @@
 include("utils.jl")
 
 include("ese.jl")
-include("grappa.jl")
+include("GRAPPA/grappa.jl")
 include("HANNA/hanna.jl")
 
 # Show method
