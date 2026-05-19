@@ -127,10 +127,13 @@ end
     ChembBERTaModel
 
 A customized version of [ChemBERTa-77M-MTR](https://huggingface.co/DeepChem/ChemBERTa-77M-MTR).
-The tokenizer is differs from the original version.
-See [specht_hanna_2024](@cite) for details.
+The tokenizer is differs from the original version (see [specht_hanna_2024](@cite) for details).
 
-## Usage
+## Documentation
+
+The ChemBERTa model can be loaded with `ChemBERTa.load()`. The output is a `ChemBERTa.ChemBERTaModel` object that can be used to generate embeddings based on an input SMILES code (see below).
+
+## Example
 
 ```julia
 using ChemBERTa
@@ -142,10 +145,6 @@ bert = ChemBERTa.load()
 # Calculating the embedding for a given SMILES
 embedding = bert(smiles)
 ```
-
-## Documentation
-
-
 """
 ChemBERTaModel
 
