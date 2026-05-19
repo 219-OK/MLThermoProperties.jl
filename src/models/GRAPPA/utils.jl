@@ -71,7 +71,7 @@ function molgraph_to_gnngraph(mol; target=nothing)
     num_nodes = length(heavy_indices)
     
     # only load features for this atoms
-    atom_features = atom_features(mol)[:, heavy_indices]
+    atom_feats = atom_features(mol)[:, heavy_indices]
     
     # load edges and filter them
     src_orig, tgt_orig = get_directed_edges(mol)
@@ -146,7 +146,7 @@ function molgraph_to_gnngraph(mol; target=nothing)
 
     # create GNNGraph
     graph = GNNGraph(source, target_nodes, 
-                    ndata=(; x=atom_features), 
+                    ndata=(; x=atom_feats), 
                     edata=(; e=bond_features), 
                     gdata=(; adj=adjacency, h_donors=h_donors, h_acceptors=h_acceptors))
 
