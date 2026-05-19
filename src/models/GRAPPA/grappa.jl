@@ -74,25 +74,19 @@ function GRAPPA(components; userlocations=String[], reference_state=nothing, ver
 
     # get antoine parameters
     _ABC = [
-        begin
-            graph = smiles_to_gnngraph(s)
-            antoine_scaled, _ = grappa_model(graph, ps, st)
-            Float64.(antoine_scaled)
-        end
-        for s in _params["SMILES"].values
-    ]
+        Float64.(first(grappa_model(smiles_to_gnngraph(s), ps, st)))
+    for s in _params["SMILES"].values]
     
     A = CL.SingleParam("A", components, [_abc[1] for _abc in _ABC])
     B = CL.SingleParam("B", components, [_abc[2] for _abc in _ABC])
     C = CL.SingleParam("C", components, [_abc[3] for _abc in _ABC])
     _T = Base.promote_eltype(A,B,C)
     
-    params = GRAPPAParam{_T}(_params["Tc"],A,B,C)
+    params = GRAPPAParam(_params["Tc"],A,B,C)
     references = ["10.1016/j.ceja.2025.100750"]
 
     return GRAPPA(components, params, references)
 end
-
 
 # vapor pressure calculation
 function CL.crit_pure(model::GRAPPAModel{_T}) where _T

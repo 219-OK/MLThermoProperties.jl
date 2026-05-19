@@ -1,3 +1,5 @@
+# This only serves as comparison/legacy constructor for GRAPPA
+# TODO remove
 function _GRAPPA_error(args...; kwargs...)
     error("""
     To use GRAPPA, `PythonCall` needs to be installed and loaded! This can be done by:

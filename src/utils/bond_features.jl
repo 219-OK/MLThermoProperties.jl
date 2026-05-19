@@ -1,6 +1,4 @@
-export get_all_bond_features, bond_feature_labels, is_conjugated
-
-## Bond stereo categories (matching RDKit's possible_stereo list)
+# Bond stereo categories (matching RDKit's possible_stereo list)
 const STEREO_NONE = 0
 const STEREO_Z    = 1  # cis
 const STEREO_E    = 2  # trans
@@ -14,11 +12,7 @@ const FEATURE_LABELS = [
 
 bond_feature_labels() = FEATURE_LABELS
 
-"""
-    one_of_k_encoding(val, possible_values) -> Vector{Float32}
-
-One-hot encode `val` among `possible_values`. Errors if `val` is not found.
-"""
+# One-hot encode val among possible_values
 function one_of_k_encoding(val, possible_values)
     encoding = zeros(Float32, length(possible_values))
     idx = findfirst(==(val), possible_values)
@@ -27,15 +21,6 @@ function one_of_k_encoding(val, possible_values)
     return encoding
 end
 
-"""
-    is_conjugated(mol) -> BitVector
-
-Determine which bonds are conjugated (matching RDKit's `GetIsConjugated`).
-
-A bond is conjugated if both endpoints are sp2/sp hybridized AND the bond
-belongs to a connected component of ≥ 2 such bonds (i.e., part of a
-conjugated *system*, not an isolated double bond).
-"""
 function is_conjugated(mol)
     hyb = hybridization(mol)
     edge_list = collect(edges(mol))
@@ -48,7 +33,6 @@ function is_conjugated(mol)
     end
 
     # Build adjacency among sp2/sp bonds (two bonds are adjacent if they share a vertex)
-    # Use union-find to find connected components
     parent = collect(1:n)
     function find(x)
         while parent[x] != x
@@ -92,15 +76,7 @@ function is_conjugated(mol)
     return result
 end
 
-"""
-    get_all_bond_features(mol) -> Matrix{Float32}
-
-Extract bond features for every bond in both directions (i→j and j→i),
-matching the output shape of the Python `get_all_bond_features`.
-
-Returns a `(2*ne × 9)` matrix where each row is a bond feature vector.
-Row order: for each bond (u,v), first (u,v) then (v,u).
-"""
+# Extract bond features for every bond in both directions (i→j and j→i)
 function get_all_bond_features(mol)
     orders   = bond_order(mol)
     arom     = is_edge_aromatic(mol)
@@ -136,9 +112,4 @@ function get_all_bond_features(mol)
     return result
 end
 
-"""
-    get_all_bond_features(smiles::AbstractString) -> Matrix{Float32}
-
-Convenience method: parse a SMILES string, then extract bond features.
-"""
 get_all_bond_features(smiles::AbstractString) = get_all_bond_features(smilestomol(smiles))

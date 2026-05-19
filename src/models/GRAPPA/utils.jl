@@ -4,9 +4,9 @@ const GRAPPA_BONDS = [0, 1, 2, 3, 4]
 const GRAPPA_BOND_TYPES = [1, 2, 3]
 const GRAPPA_HS = [0, 1, 2, 3]
 
-
-function atom_feature(mol)
+function atom_features(mol)
     num_atoms = nv(mol)
+    
     # empty matrix with 24 Properties x Number of nodes
     features = zeros(Float32, 24, num_atoms)
 
@@ -14,17 +14,12 @@ function atom_feature(mol)
     if any(atom_charge(mol) .!= 0)
         error("Atom has formal charge!")
     end
-    # throw error if atom has radical electrons
-    # if atom_radical_electrons(mol) != 0   this function doesnt exist (yet)
-    #     error("Atom has radical electrons!")
-    # end
 
     # get the whole chemical info
     syms = atom_symbol(mol)
     rings = is_in_ring(mol)
     aroms = is_aromatic(mol)
     hybs = hybridization(mol)
-    #degs = Graphs.degree(mol)
     hs = total_hydrogens(mol) 
     
     for i in 1:num_atoms
@@ -32,7 +27,7 @@ function atom_feature(mol)
         f_type = onehot_encoder(syms[i], GRAPPA_ATOMS)
         # ring
         f_ring = Float32[rings[i] ? 1.0 : 0.0]
-        # aromcatic
+        # aromatic
         f_arom = Float32[aroms[i] ? 1.0 : 0.0]
         # hybridisation
         current_hyb = Symbol(uppercase(string(hybs[i])))
@@ -52,7 +47,7 @@ function atom_feature(mol)
         end
         f_bond = onehot_encoder(heavy_degree, GRAPPA_BONDS)
         # amount H-atoms
-        f_h    = onehot_encoder(hs[i], GRAPPA_HS)
+        f_h = onehot_encoder(hs[i], GRAPPA_HS)
         
         # add all the information
         atom_vec = vcat(f_type, f_ring, f_arom, f_hyb, f_bond, f_h)
@@ -62,13 +57,11 @@ function atom_feature(mol)
     return features 
 end
 
-
 function bond_feature(mol)
     raw_features = get_all_bond_features(mol)
     features = copy(raw_features')
     return features
 end
-
 
 function molgraph_to_gnngraph(mol; target=nothing)
     syms_full = MolecularGraph.atom_symbol(mol)
@@ -78,7 +71,7 @@ function molgraph_to_gnngraph(mol; target=nothing)
     num_nodes = length(heavy_indices)
     
     # only load features for this atoms
-    atom_features = atom_feature(mol)[:, heavy_indices]
+    atom_features = atom_features(mol)[:, heavy_indices]
     
     # load edges and filter them
     src_orig, tgt_orig = get_directed_edges(mol)
@@ -166,6 +159,6 @@ end
 
 
 function smiles_to_gnngraph(smiles::AbstractString; target=nothing)
-    mol = smiles_to_molgraph(smiles)
+    mol = MolecularGraph.smilestomol(smiles)
     return molgraph_to_gnngraph(mol; target)
 end

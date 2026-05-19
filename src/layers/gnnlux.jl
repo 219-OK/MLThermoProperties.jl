@@ -1,3 +1,5 @@
+#TODO use GNNLux instead (as soon as it works again)
+
 @concrete struct GATv2Conv <: AbstractLuxLayer
     dense_i
     dense_j

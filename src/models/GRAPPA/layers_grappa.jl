@@ -1,4 +1,3 @@
-
 # GraphAttentionPooling
 struct GraphAttentionPoolingLux <: LuxCore.AbstractLuxLayer
     in_dim::Int
@@ -17,7 +16,6 @@ function LuxCore.initialstates(rng::AbstractRNG, layer::GraphAttentionPoolingLux
     return NamedTuple()
 end
 
-
 function (layer::GraphAttentionPoolingLux)(node_out::AbstractMatrix, ps, st::NamedTuple)
     # node_out has the form: Features=32, Nodes=N
     n_features = size(node_out, 1)
@@ -29,11 +27,9 @@ function (layer::GraphAttentionPoolingLux)(node_out::AbstractMatrix, ps, st::Nam
     
     # calculate attention score (Q^T * K) / sqrt(d)
     attn_logits = (Q' * K) ./ Float32(sqrt(n_features))
-    
     attention_scores = softmax(attn_logits, dims=2)
-    
+
     context_matrix = V * attention_scores'
-    
     pooled_graph = sum(context_matrix, dims=2)
     
     return pooled_graph, st
@@ -64,30 +60,24 @@ function MultiHeadAttentionPoolingLux(in_dim::Int, key_dim::Int, num_heads::Int)
     return MultiHeadAttentionPoolingLux(head_layers)
 end
 
-
-# ---------------------------------------------------------------------------
 # prediction head
-
-# input_dim=34, hidden_dim=16, num_hidden_layers=3, out_dim=3
 function grappa_head(input_dim=34, hidden_dim=16, num_hidden_layers=3, out_dim=3)
-    layers = []
-    
-    # Input Layer (BatchNorm + Linear + ELU)
-    push!(layers, BatchNorm(input_dim))
-    push!(layers, Dense(input_dim => hidden_dim, elu))
-    
-    # Hidden Layers
-    for _ in 1:num_hidden_layers
-        push!(layers, BatchNorm(hidden_dim))
-        push!(layers, Dense(hidden_dim => hidden_dim, elu))
+    hidden_layers = ntuple(2 * num_hidden_layers) do i
+        isodd(i) ? BatchNorm(hidden_dim) : Dense(hidden_dim => hidden_dim, elu)
     end
-    
-    # output layer
-    push!(layers, BatchNorm(hidden_dim))
-    push!(layers, Dense(hidden_dim => out_dim))
-    
 
-    return Chain(layers...) 
+    head = Chain(
+        # Input Layer (BatchNorm + Linear + ELU)
+        BatchNorm(input_dim),
+        Dense(input_dim => hidden_dim, elu),
+        # Hidden Layers
+        hidden_layers...,
+        # output layer
+        BatchNorm(hidden_dim),
+        Dense(hidden_dim => out_dim),
+    )
+    
+    return head
 end
 
 #scale_output
@@ -103,8 +93,6 @@ function scale_antoine_parameters(raw_params)
     return vcat(A, B, C)
 end
 
-
-# ---------------------------------------------------------------------------
 # model
 struct GRAPPAModelLux <: LuxCore.AbstractLuxContainerLayer{(:conv0, :conv1, :conv2, :conv3, :pooling, :head)}
     conv0::GATv2Conv
@@ -135,9 +123,6 @@ end
 
 function (model::GRAPPAModelLux)(graph::GNNGraph, ps, st::NamedTuple)
     
-    # gnn, input is graph from smiles_to_gnngraph
-    #node_out, st_gnn = model.gnn(graph, graph.ndata.x, graph.edata.e, ps.gnn, st.gnn)
-
     x = graph.ndata.x
     e = graph.edata.e
     
