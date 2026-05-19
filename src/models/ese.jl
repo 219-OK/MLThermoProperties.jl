@@ -53,7 +53,7 @@ CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/m
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
 
 function ESE(components;
-        vismodel = RefpropRES,
+        vismodel = RefpropRESModel,
         userlocations = String[],
         vis_userlocations = String[],
         verbose = false,
