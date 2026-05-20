@@ -47,7 +47,7 @@ D_matrix = inf_diffusion_coefficient(model, 1e5, 300.)
 D_eth = inf_diffusion_coefficient(model, 1e5, 300.; solute="ethanol", solvent="acetonitril")
 ```
 """
-ESE 
+ESE
 
 CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/molarmass.csv"]
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
@@ -67,7 +67,6 @@ function ESE(components;
         userlocations,ignore_headers=["dipprnumber","inchikey","cas","canonicalsmiles","Mw"])
 
     smiles = _params["SMILES"].values
-    descs = get_descriptors.(smiles)
 
     nn = ESELux()
     ps, st = load(joinpath(get_model_path(ESE),"parameters_states_ensemble.jld2"), "ps", "st")

@@ -2,11 +2,19 @@ using Documenter
 using DocumenterVitepress
 using DocumenterCitations
 using Literate
-using MLThermoProperties, ChemBERTa, Clapeyron
+using MLThermoProperties, ChemBERTa
+
+# for examples 
+using Clapeyron, EntropyScaling, CoolProp, PythonCall 
 
 ## Generate tutorial markdown from Literate sources
 Literate.markdown(
     joinpath(@__DIR__, "src", "tutorials", "px_diagram.jl"),
+    joinpath(@__DIR__, "src", "tutorials");
+    documenter = true,
+)
+Literate.markdown(
+    joinpath(@__DIR__, "src", "tutorials", "diffusion_coefficients.jl"),
     joinpath(@__DIR__, "src", "tutorials");
     documenter = true,
 )
@@ -23,6 +31,7 @@ makedocs(;
     pages = [
         "Tutorials" => [
             "p-x Diagram with HANNA" => "tutorials/px_diagram.md",
+            "Diffusion coefficients with ESE" => "tutorials/diffusion_coefficients.md",
         ],
         "Models" => "models.md",
         "References" => "references.md",
