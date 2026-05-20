@@ -8,7 +8,7 @@ end
 struct ESE{T,M} <: ESEModel
     components::Array{String,1}
     params::ESEParam{T}
-    vismodel::M
+    pure_vismodels::Vector{M}
     references::Array{String,1}
 end
 
@@ -35,7 +35,7 @@ end
 ESE model for calculating diffusion coefficients at infinite dilution.
 The diffusion coefficient at infinite dilution can be calculated by calling [`inf_diffusion_coefficient`](https://se-schmitt.github.io/EntropyScaling.jl/stable/).
 
-If no viscosity model is specified, a `GCESModel` from `EntropyScaling.jl` is constructed (if possible).
+If no viscosity model is specified, a `RefpropRES` from `EntropyScaling.jl` is constructed (if possible).
 A constant viscosity model can also be used if the viscosity η is knwon as `ESE(...; vismodel=ConstantModel(Viscosity(), η))`.
 
 ## Examples
@@ -47,13 +47,13 @@ D_matrix = inf_diffusion_coefficient(model, 1e5, 300.)
 D_eth = inf_diffusion_coefficient(model, 1e5, 300.; solute="ethanol", solvent="acetonitril")
 ```
 """
-ESE 
+ESE
 
 CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/molarmass.csv"]
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
 
 function ESE(components;
-        vismodel = RefpropRESModel,
+        vismodel = RefpropRES,
         userlocations = String[],
         vis_userlocations = String[],
         verbose = false,
@@ -88,11 +88,15 @@ function ESE(components;
     end
 
     params = ESEParam(b_ij, SingleParam("Mw",_components,first.(Xs)*1e3))
-    _vismodel = PureModelContainer(Viscosity(), vismodel, _components; userlocations=vis_userlocations, verbose)
+    _vismodel = _build_es_model(_components, vismodel; userlocations=vis_userlocations)
+    _pure_vismodels = _split_es_model(_vismodel)
     references = String["10.48550/arXiv.2603.02761"]
 
-    return ESE(_components, params, _vismodel, references)
+    return ESE(_components, params, _pure_vismodels, references)
 end
+
+_split_es_model(model::ES.AbstractEntropyScalingModel) = CL.split_model(model)
+_split_es_model(models::Vector{<:ES.AbstractTransportPropertyModel}) = models
 
 function get_ese_X(smiles)
     desc = get_descriptors(smiles)
@@ -119,7 +123,7 @@ function ES._inf_diffusion_coefficient(model::ESE, p, T, (idx_i,idx_j); phase=:l
     f = 0.64
     ϱ_ref = 1050.
     M_i = model.params.Mw.values[idx_i]*1e-3
-    η_j = viscosity(model.vismodel, p, T, idx_j; phase)
+    η_j = viscosity(model.pure_vismodels[idx_j], p, T; phase)
 
     r_i = cbrt(f * 3 * M_i / (4π * ϱ_ref * NA))
     Dij_SE = (kB*T)/(6π*η_j*r_i)
