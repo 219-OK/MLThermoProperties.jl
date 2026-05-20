@@ -7,17 +7,20 @@ using MLThermoProperties, ChemBERTa
 # for examples 
 using Clapeyron, EntropyScaling, CoolProp, PythonCall 
 
+## Tutorials -- order here defines the order shown in the sidebar
+tutorials = [
+    "p-x Diagram with HANNA"          => "px_diagram",
+    "Diffusion coefficients with ESE" => "diffusion_coefficients",
+]
+
 ## Generate tutorial markdown from Literate sources
-Literate.markdown(
-    joinpath(@__DIR__, "src", "tutorials", "px_diagram.jl"),
-    joinpath(@__DIR__, "src", "tutorials");
-    documenter = true,
-)
-Literate.markdown(
-    joinpath(@__DIR__, "src", "tutorials", "diffusion_coefficients.jl"),
-    joinpath(@__DIR__, "src", "tutorials");
-    documenter = true,
-)
+for (_, slug) in tutorials
+    Literate.markdown(
+        joinpath(@__DIR__, "src", "tutorials", "$(slug).jl"),
+        joinpath(@__DIR__, "src", "tutorials");
+        documenter = true,
+    )
+end
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
@@ -29,10 +32,7 @@ makedocs(;
         devurl = "dev",
     ),
     pages = [
-        "Tutorials" => [
-            "p-x Diagram with HANNA" => "tutorials/px_diagram.md",
-            "Diffusion coefficients with ESE" => "tutorials/diffusion_coefficients.md",
-        ],
+        "Tutorials" => [title => "tutorials/$(slug).md" for (title, slug) in tutorials],
         "Models" => "models.md",
         "References" => "references.md",
     ],

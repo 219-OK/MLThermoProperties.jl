@@ -16,11 +16,11 @@ using MLThermoProperties
 using EntropyScaling
 using CoolProp
 
-# ## Default: `RefpropRES` for ethanol + water
+# ## Default: `RefpropRES` for ethanol + n-decane
 #
-# When no viscosity model is specified, [`ESE`](@ref) builds a `RefpropRES` model for the components.  This is the recommended choice whenever fluid-specific reference parameters are available -- both ethanol and water are covered.
+# When no viscosity model is specified, [`ESE`](@ref) builds a `RefpropRES` model for the components.  This is the recommended choice whenever fluid-specific reference parameters are available -- both ethanol and n-decane are covered.  The mixture itself is a strongly non-ideal polar/apolar pair often used to benchmark diffusion correlations.
 
-model = ESE(["ethanol", "water"])
+model = ESE(["ethanol", "n-decane"])
 
 # `inf_diffusion_coefficient` (from `EntropyScaling.jl`) returns the full ``N \times N`` matrix of infinite-dilution diffusion coefficients when called positionally.  Diagonal entries are zero by convention; off-diagonals carry the physical values.
 
@@ -28,17 +28,17 @@ D_matrix = inf_diffusion_coefficient(model, 1e5, 300.0)
 
 # Individual entries can be requested by component name (or index) via the `solute` / `solvent` keyword arguments.
 
-D_eth = inf_diffusion_coefficient(model, 1e5, 300.0; solute="ethanol", solvent="water")
+D_eth = inf_diffusion_coefficient(model, 1e5, 300.0; solute="ethanol", solvent="n-decane")
 
 # ### Temperature dependence
 #
-# We scan a typical liquid-phase temperature range at ``p = 1 \; \rm{bar}`` and compute the diffusion coefficient of ethanol in water and of water in ethanol.
+# We scan a typical liquid-phase temperature range at ``p = 1 \; \rm{bar}`` and compute the diffusion coefficient of ethanol in n-decane and of n-decane in ethanol.
 
 p   = 1e5
 Ts  = range(280.0, 340.0; length=40)
 
-D_eth_in_w = inf_diffusion_coefficient.(model, p, Ts; solute="ethanol", solvent="water")
-D_w_in_eth = inf_diffusion_coefficient.(model, p, Ts; solute="water",   solvent="ethanol")
+D_eth_in_dec = inf_diffusion_coefficient.(model, p, Ts; solute="ethanol",  solvent="n-decane")
+D_dec_in_eth = inf_diffusion_coefficient.(model, p, Ts; solute="n-decane", solvent="ethanol")
 
 using CairoMakie
 
@@ -46,10 +46,10 @@ fig1 = Figure(size = (600, 400))
 ax1  = Axis(fig1[1, 1];
     xlabel = "T / K",
     ylabel = "D∞ / 10⁻⁹ m² s⁻¹",
-    title  = "ethanol (1) + water (2) - RefpropRES",
+    title  = "ethanol (1) + n-decane (2) - RefpropRES",
 )
-lines!(ax1, Ts, D_eth_in_w .* 1e9; label = "ethanol in water", color = :red)
-lines!(ax1, Ts, D_w_in_eth .* 1e9; label = "water in ethanol", color = :blue)
+lines!(ax1, Ts, D_eth_in_dec .* 1e9; label = "ethanol in n-decane", color = :red)
+lines!(ax1, Ts, D_dec_in_eth .* 1e9; label = "n-decane in ethanol", color = :blue)
 Legend(fig1[1, 2], ax1, framevisible = false)
 fig1
 
