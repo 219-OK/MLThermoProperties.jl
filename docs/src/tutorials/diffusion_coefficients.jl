@@ -1,12 +1,12 @@
 # # Diffusion Coefficients at Infinite Dilution with ESE
 #
-# This tutorial shows how to compute diffusion coefficients at infinite dilution for binary liquid mixtures with the **ESE model** [wagner_hybrid_2026](@cite) (`ESE`) from `MLThermoProperties.jl`, coupled to viscosity models from [`EntropyScaling.jl`](https://github.com/se-schmitt/EntropyScaling.jl).
+# This tutorial shows how to compute diffusion coefficients at infinite dilution for binary liquid mixtures with the **ESE (enhanced Stokes-Einstein) model** [wagner_hybrid_2026](@cite) (`ESE`) from `MLThermoProperties.jl`, coupled to viscosity models from [`EntropyScaling.jl`](https://github.com/se-schmitt/EntropyScaling.jl).
 #
 # Internally, ESE evaluates a Stokes--Einstein expression that requires the *solvent* viscosity ``\eta_j`` at the conditions of interest.  The viscosity is therefore supplied through the `vismodel` keyword of [`ESE`](@ref).  Three options are demonstrated below:
 #
-# 1. the default `RefpropRES` (fluid-specific reference correlation),
-# 2. `GCES` (group-contribution model, for systems where `RefpropRES` parameters are unavailable), and
-# 3. `ConstantModel` (when only a single experimental viscosity value is known).
+# 1. the default [`RefpropRES`](https://se-schmitt.github.io/EntropyScaling.jl/stable/models/ES_models/#EntropyScaling.RefpropRES) (fluid-specific reference correlation),
+# 2. [`GCES`](https://se-schmitt.github.io/EntropyScaling.jl/stable/models/ES_models/#EntropyScaling.GCES) (a group-contribution model, for systems where `RefpropRES` parameters are unavailable), and
+# 3. constant viscosity via `ConstantModel` (when only a single experimental viscosity value is known).
 #
 # ## Setup
 #
