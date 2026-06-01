@@ -12,12 +12,7 @@ function get_descriptors_jl(smiles::AbstractString)
     clean_smiles = replace(clean_smiles, "n(=O)" => "[n+]([O-])")
     clean_smiles = replace(clean_smiles, "C=N#N" => "[C-]=[N+]=[N-]")
 
-    # imine to amine
-    # clean_smiles = replace(clean_smiles, "c(=N)" => "c(N)")
-    # clean_smiles = replace(clean_smiles, "sc1=N" => "sc1N")
-    
     mol = MolecularGraph.smilestomol(clean_smiles)
-    
     
     # check if smiles is a valid molecule
     if isnothing(mol)
@@ -27,28 +22,12 @@ function get_descriptors_jl(smiles::AbstractString)
     # get atoms
     atoms = atom_symbol(mol)
 
-    # count of hydrogen bond acceptors
-    # aroms_full = is_aromatic(mol)
-    # acc_count = 0.0
-    # for i in eachindex(atoms)
-    #     if atoms[i] ∈ [:N, :O]
-    #         acc_count += 1.0
-    #     elseif atoms[i] == :S && !aroms_full[i] # if sulfur is there and not aromatic connected it is an acceptor
-    #         acc_count += 1.0
-    #     end
-    # end
-
     hba_matches = substruct_matches(mol, RDKIT_HBA)
     hbd_matches = substruct_matches(mol, RDKIT_HBD)
 
-    # RDKit zieht diese ab, also tun wir das auch!
-    #acc_count = base_hba - length(amide_matches) - length(pyrrole_matches)
-
-
-
     return Dict(
         "exactmw" => Float64(exact_mass(mol)),
-        "NumRings" => Int64.(length(sssr(mol))),    # gets amount of rings in mol
+        "NumRings" => Int64.(length(sssr(mol))),
         "NumHeteroatoms" => Int64(count(a -> a ∉ HOMO_ATOMS, atoms)),
         "NumHeavyAtoms" => Int64(heavy_atom_count(mol)),
         "NumHBA" => Int64(length(collect(hba_matches))),
