@@ -19,13 +19,3 @@ Base.broadcastable(scaler::AbstractScaler) = Ref(scaler)
 Clapeyron.is_splittable(::AbstractScaler) = false
 
 Clapeyron.is_splittable(::NamedTuple) = false       #TODO move to Clapeyron
-
-function _build_es_model(components, model::ES.AbstractEntropyScalingModel; kwargs...)
-    return model
-end
-function _build_es_model(components, model::Vector{<:ES.AbstractTransportPropertyModel}; kwargs...)
-    return model
-end
-function _build_es_model(components, ::Type{MODEL}; kwargs...) where {MODEL<:ES.AbstractEntropyScalingModel}
-    return MODEL(components; kwargs...)
-end

@@ -20,9 +20,12 @@ BERT = nothing
 # Layers
 include("layers/layers.jl")
 
+# Bond Features for GRAPPA
+include("utils/bond_features.jl")
+# descriptors for ESE
+include("utils/descriptors.jl")
+
 # Models
 include("models/models.jl")
 
-# Bond Features for GRAPPA
-include("utils/bond_features.jl")
 end

@@ -3,6 +3,9 @@ uuid = "5b10a24f-5c48-4ecd-8f3d-34970e95074b"
 version = "0.1.1"
 authors = ["se-schmitt <se.s.schmitt@gmail.com> and contributors"]
 
+[workspace]
+projects = ["test", "docs"]
+
 [deps]
 ChemBERTa = "c6d5ccb6-415a-469b-bc0e-e5c43fa6df39"
 Clapeyron = "7c7805af-46cc-48c9-995b-ed0ed2dc909a"
@@ -35,7 +38,7 @@ RDKitMinimalLibExt = "RDKitMinimalLib"
 ChemBERTa = "0.1.0"
 Clapeyron = "0.6.14"
 ConcreteStructs = "0.2.3"
-EntropyScaling = "0.4.1"
+EntropyScaling = "0.3.6"
 GNNGraphs = "1.5.0"
 GNNlib = "1.2.1"
 Graphs = "1.14.0"
@@ -49,6 +52,3 @@ PythonCall = "0.9.31"
 Random = "1.11.0"
 Statistics = "1.11.1"
 julia = "1.11"
-
-[workspace]
-projects = ["test", "docs"]

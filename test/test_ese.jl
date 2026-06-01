@@ -1,5 +1,5 @@
 @testitem "ESE" begin 
-    using EntropyScaling, PythonCall
+    using EntropyScaling
 
     p_iso = 1e5 
 
@@ -7,7 +7,7 @@
     model_A = ESE(
         ["methylal", "dodecane"]; 
         userlocations=(;SMILES=["COCOC","CCCCCCCCCCCC"]),
-        vismodel=[ConstantModel(Viscosity(), NaN),ConstantModel(Viscosity(), 0.0013153)]
+        vismodel=[nothing,ConstantModel(Viscosity(), 0.0013153)]
     )    
     D_A = inf_diffusion_coefficient(model_A, p_iso, 300.; solute=1, solvent=2)*1e9
     @test D_A ≈ 1.68 rtol=1e-2

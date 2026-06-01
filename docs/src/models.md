@@ -57,14 +57,3 @@ It only requires the SMILES of the solute and solvent as input, together with a 
 ```@docs
 MLThermoProperties.ESE
 ```
-
-## Other Models
-
-### ChemBERTa.jl
-
-The package [`ChemBERTa.jl`](https://github.com/se-schmitt/MLThermoProperties.jl/tree/main/lib/ChemBERTa) contains encoder language models from the ChemBERTa model family. 
-It is an registered package and can be used independently of `MLThermoProperties.jl`.
-
-```@docs
-ChemBERTa.ChemBERTaModel
-```

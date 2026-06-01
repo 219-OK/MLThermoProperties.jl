@@ -25,7 +25,7 @@ function _get_descriptors_error(smiles)
     return nothing
 end
 
-const _get_descriptors = Ref{Function}(_get_descriptors_error)
+const _get_descriptors = Ref{Function}(get_descriptors_jl)
 
 function get_descriptors(smiles)
     return _get_descriptors[](smiles)

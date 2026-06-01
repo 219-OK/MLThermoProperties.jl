@@ -2,6 +2,25 @@
     ChembBERTa
 
 Small sub-package for the ChemBERTa model applied in the MLPROP models.
+
+## Usage
+
+```julia
+using ChemBERTa
+smiles = "CCCO"
+
+# Loading the ChemBERTa model
+bert = ChemBERTa.load()
+
+# Calculating the embedding for a given SMILES
+embedding = bert(smiles)
+```
+
+## Documentation
+
+The ChemBERTa model is a customized model based on [ChemBERTa-77M-MTR](https://huggingface.co/DeepChem/ChemBERTa-77M-MTR).
+The tokenizer is different from the original version as the it fixes some errors.
+See XY for details.
 """
 module ChemBERTa
 
