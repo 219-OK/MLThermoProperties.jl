@@ -25,4 +25,6 @@ include("models/models.jl")
 
 # Bond Features for GRAPPA
 include("utils/bond_features.jl")
+# descriptors calculated with MolecularGraph
+include("utils/descriptors.jl")
 end

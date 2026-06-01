@@ -18,15 +18,3 @@ function Base.show(io::IO, ::MIME"text/plain", model::MODELS)
     CL.may_show_references(io,model)
 end
 CL.show_reference_state(io,::ESE) = nothing
-
-# placeholder function for RDKit #TODO move to utils??
-function _get_descriptors_error(smiles)
-    error("To use this functionality in `MLThermoProperties.jl`, you need to install and import either `PythonCall.jl`!")
-    return nothing
-end
-
-const _get_descriptors = Ref{Function}(_get_descriptors_error)
-
-function get_descriptors(smiles)
-    return _get_descriptors[](smiles)
-end
