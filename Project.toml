@@ -3,6 +3,9 @@ uuid = "5b10a24f-5c48-4ecd-8f3d-34970e95074b"
 version = "0.1.1"
 authors = ["se-schmitt <se.s.schmitt@gmail.com> and contributors"]
 
+[workspace]
+projects = ["test", "docs"]
+
 [deps]
 ChemBERTa = "c6d5ccb6-415a-469b-bc0e-e5c43fa6df39"
 Clapeyron = "7c7805af-46cc-48c9-995b-ed0ed2dc909a"
@@ -21,15 +24,11 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [weakdeps]
-PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
-RDKitMinimalLib = "44044271-7623-48dc-8250-42433c44e4b7"
 
 [sources]
-ChemBERTa = {path = "lib/ChemBERTa"}
+ChemBERTa = {path = "lib\\ChemBERTa"}
 
 [extensions]
-PythonCallExt = "PythonCall"
-RDKitMinimalLibExt = "RDKitMinimalLib"
 
 [compat]
 ChemBERTa = "0.1.0"
@@ -45,10 +44,6 @@ Lux = "1.16.0"
 LuxCore = "1.5.3"
 MolecularGraph = "0.22.0"
 NNlib = "0.9.34"
-PythonCall = "0.9.31"
 Random = "1.11.0"
 Statistics = "1.11.1"
 julia = "1.11"
-
-[workspace]
-projects = ["test", "docs"]

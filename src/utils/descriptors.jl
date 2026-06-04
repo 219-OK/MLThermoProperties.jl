@@ -7,10 +7,10 @@ const RDKIT_HBD = MolecularGraph.smartstomol(raw"[$([N;!H0;v3]),$([N;!H0;+1;v4])
 function get_descriptors(smiles::AbstractString)
     clean_smiles = smiles
     
-    clean_smiles = replace(clean_smiles, "N(=O)=O" => "[N+](=O)[O-]")
-    clean_smiles = replace(clean_smiles, "O=N(=O)" => "O=[N+]([O-])")
-    clean_smiles = replace(clean_smiles, "n(=O)" => "[n+]([O-])")
-    clean_smiles = replace(clean_smiles, "C=N#N" => "[C-]=[N+]=[N-]")
+    clean_smiles = replace(clean_smiles, "N(=O)=O"  => "[N+](=O)[O-]")
+    clean_smiles = replace(clean_smiles, "O=N(=O)"  => "O=[N+]([O-])")
+    clean_smiles = replace(clean_smiles, "n(=O)"    => "[n+]([O-])")
+    clean_smiles = replace(clean_smiles, "C=N#N"    => "[C-]=[N+]=[N-]")
 
     mol = MolecularGraph.smilestomol(clean_smiles)
     
@@ -25,13 +25,13 @@ function get_descriptors(smiles::AbstractString)
     hba_matches = substruct_matches(mol, RDKIT_HBA)
     hbd_matches = substruct_matches(mol, RDKIT_HBD)
 
-    return Dict(
-        "exactmw" => Float64(exact_mass(mol)),
-        "NumRings" => Int64.(length(sssr(mol))),
-        "NumHeteroatoms" => Int64(count(a -> a ∉ HOMO_ATOMS, atoms)),
-        "NumHeavyAtoms" => Int64(heavy_atom_count(mol)),
-        "NumHBA" => Int64(length(collect(hba_matches))),
-        "NumHBD" => Int64(length(collect(hbd_matches))),
-        "NumHalogens" => Int64(count(a -> a ∈ HALOGEN_ATOMS, atoms))
+    return nt = (;
+        molmass         = exact_mass(mol),
+        num_rings       = Int64.(length(sssr(mol))),
+        num_heteroatoms = Int64(count(a -> a ∉ HOMO_ATOMS, atoms)),
+        num_heavyatoms  = Int64(heavy_atom_count(mol)),
+        h_acceptors     = Int64(length(collect(hba_matches))),
+        h_donors        = Int64(length(collect(hbd_matches))),
+        num_halogens    = Int64(count(a -> a ∈ HALOGEN_ATOMS, atoms))
     )
 end

@@ -103,12 +103,12 @@ function get_ese_X(smiles)
     is_water = smiles in ["O", "[2H]O[2H]"]
 
     X = [
-        desc["exactmw"] * 1e-3,
-        is_water ? 0.5 : desc["NumHBA"] / desc["NumHeavyAtoms"],
-        is_water ? 0.5 : desc["NumHBD"] / desc["NumHeavyAtoms"],
-        desc["NumHeteroatoms"] / desc["NumHeavyAtoms"],
-        desc["NumHalogens"] / desc["NumHeavyAtoms"],
-        desc["NumRings"] != 0,
+        desc.molmass * 1e-3,
+        is_water ? 0.5 : desc.h_acceptors / desc.num_heavyatoms,
+        is_water ? 0.5 : desc.h_donors / desc.num_heavyatoms,
+        desc.num_heteroatoms / desc.num_heavyatoms,
+        desc.num_halogens / desc.num_heavyatoms,
+        desc.num_rings != 0,
     ]
 
     return X
