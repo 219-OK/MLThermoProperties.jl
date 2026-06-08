@@ -23,6 +23,8 @@ include("layers/layers.jl")
 # Models
 include("models/models.jl")
 
-# Bond Features for GRAPPA
+# Utils
 include("utils/bond_features.jl")
+include("utils/descriptors.jl")
+
 end

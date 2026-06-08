@@ -4,6 +4,10 @@ const GRAPPA_BONDS = [0, 1, 2, 3, 4]
 const GRAPPA_BOND_TYPES = [1, 2, 3]
 const GRAPPA_HS = [0, 1, 2, 3]
 
+const RDKIT_HBA = MolecularGraph.smartstomol(raw"[$([O,S;H1;v2]-[!$(*=[O,N,P,S])]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=!@[O,N,P,S])]),$([nH0,o,s;+0])]")
+const RDKIT_HBD = MolecularGraph.smartstomol(raw"[$([N;!H0;v3]),$([N;!H0;+1;v4]),$([O,S;H1;+0]),$([n;H1;+0])]")
+
+
 function atom_features(mol)
     num_atoms = nv(mol)
     
@@ -141,8 +145,11 @@ function molgraph_to_gnngraph(mol; target=nothing)
         end
     end
     
-    h_acceptors = Float32(acc_count)
-    h_donors = Float32(MolecularGraph.hydrogen_donor_count(mol))
+    hba_matches = substruct_matches(mol, RDKIT_HBA)
+    hbd_matches = substruct_matches(mol, RDKIT_HBD)
+
+    h_acceptors     = Int64(length(collect(hba_matches)))
+    h_donors        = Int64(length(collect(hbd_matches)))
 
     # create GNNGraph
     graph = GNNGraph(source, target_nodes, 
