@@ -151,7 +151,6 @@ function molgraph_to_gnngraph(mol; target=nothing)
     h_acceptors     = Int64(length(collect(hba_matches)))
     h_donors        = Int64(length(collect(hbd_matches)))
 
-    print("Neue Funktion")
     # create GNNGraph
     graph = GNNGraph(source, target_nodes, 
                     ndata=(; x=atom_feats), 
