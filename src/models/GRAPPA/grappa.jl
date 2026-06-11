@@ -108,9 +108,34 @@ function CL.saturation_pressure_impl(model::GRAPPAModel, T, ::CL.SaturationCorre
     B = only(model.params.B.values)
     C = only(model.params.C.values)
 
-    !isnan(Tc) && T > Tc && (return nan, nan, nan)
+    if !isnan(Tc) && T > Tc 
+        @warn "Temperature above critical temperature!"
+        return nan, nan, nan
+    end
+
+    if T < 250. || T > 600.
+        @warn "GRAPPA model was only trained for temperatures from 250 to 600 K. Temperature $(T) K is out of this range!"
+    end
+
     psat = exp(A - B/(T + C)) * 1000
-    return psat, nan, nan
+    return psat, nan, nan   # psat in kPa
 end
+
+
+function CL.saturation_temperature_impl(model::GRAPPAModel, p, ::CL.SaturationCorrelation)
+    nan = zero(p)/zero(p)
+    
+    A = only(model.params.A.values)
+    B = only(model.params.B.values)
+    C = only(model.params.C.values)
+
+    if p < 1. || p > 10e7
+        @warn "GRAPPA model was only trained for pressures from 1 to 10e7 Pa. Pressure $(p) Pa is out of this range!"
+    end
+
+    tsat = B / (A - log(p/1000.0)) - C # p in kPa
+    return tsat, nan, nan   # tsat in K
+end
+
 
 export GRAPPA
