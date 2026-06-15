@@ -19,8 +19,26 @@ function atom_features(mol)
         error("Atom has formal charge!")
     end
 
+    # atoms in molecule cannot contain unpaired electrons
+    if any(multiplicity(mol) .!= 1)   # 1 = non radical, 2 = radical, 3 = biradical
+        error("Atom has unpaired electrons!")
+    end
+
     # get the whole chemical info
     syms = atom_symbol(mol)
+
+    # return error if molecule does not contain at leat one carbon atom
+    if !any(syms .== :C)
+        error("Molecule does not contain a carbon atom!")
+    end
+
+    # check if molecule contains unsupported atoms
+    for sym in syms
+        if sym ∉ GRAPPA_ATOMS
+            error("Molecule contains atom $(sym), but only $(GRAPPA_ATOMS) are allowed!")
+        end
+    end
+
     rings = is_in_ring(mol)
     aroms = is_aromatic(mol)
     hybs = hybridization(mol)
