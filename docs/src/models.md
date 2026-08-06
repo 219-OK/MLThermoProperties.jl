@@ -46,6 +46,22 @@ On model construction, the Antoine parameters are predicted and a [`SaturationMo
 MLThermoProperties.GRAPPA
 ```
 
+## COGNAC
+
+COGNAC (COsmo-Guided Neural Activity Coefficients) predicts the group parameters of a UNIFAC model with a graph neural network instead of taking them from a fitted table [hoffmann_cognac_2026](@cite).
+`COGNAClite` is the portable variant of it: every atom is its own UNIFAC group, so the network predicts ``R_a``, ``Q_a`` per atom and ``a_{ab}`` per atom pair of the queried mixture, and the activity coefficients then follow from the closed-form original UNIFAC equations
+
+```math
+\Psi_{ab}(T) = \exp\left(-\frac{a_{ab}}{T}\right)
+```
+
+Since the group table depends on the mixture, it is predicted on model construction and is only valid for that set of components.
+Hydrogens bound to a heteroatom are separate groups, C-H hydrogens are folded into the carbon's features.
+
+```@docs
+MLThermoProperties.COGNAClite
+```
+
 ## ESE
 
 ![](assets/ESE_scheme.svg)
