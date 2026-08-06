@@ -4,10 +4,6 @@ const GRAPPA_BONDS = [0, 1, 2, 3, 4]
 const GRAPPA_BOND_TYPES = [1, 2, 3]
 const GRAPPA_HS = [0, 1, 2, 3]
 
-const RDKIT_HBA = MolecularGraph.smartstomol(raw"[$([O,S;H1;v2]-[!$(*=[O,N,P,S])]),$([O,S;H0;v2]),$([O,S;-]),$([N;v3;!$(N-*=!@[O,N,P,S])]),$([nH0,o,s;+0])]")
-const RDKIT_HBD = MolecularGraph.smartstomol(raw"[$([N;!H0;v3]),$([N;!H0;+1;v4]),$([O,S;H1;+0]),$([n;H1;+0])]")
-
-
 function atom_features(mol)
     num_atoms = nv(mol)
     
@@ -42,8 +38,9 @@ function atom_features(mol)
     rings = is_in_ring(mol)
     aroms = is_aromatic(mol)
     hybs = hybridization(mol)
-    hs = total_hydrogens(mol) 
-    
+    hs = total_hydrogens(mol)
+    degrees = heavy_degrees(mol)
+
     for i in 1:num_atoms
         # atom-typ
         f_type = onehot_encoder(syms[i], GRAPPA_ATOMS)
@@ -61,13 +58,7 @@ function atom_features(mol)
         f_hyb  = onehot_encoder(current_hyb, GRAPPA_HYB)
         
         # amount connections
-        heavy_degree = 0    # count only heavy atom neighbors like RDKit
-        for neighbor_idx in neighbors(mol, i)
-            if syms[neighbor_idx] != :H
-                heavy_degree += 1
-            end
-        end
-        f_bond = onehot_encoder(heavy_degree, GRAPPA_BONDS)
+        f_bond = onehot_encoder(degrees[i], GRAPPA_BONDS)
         # amount H-atoms
         f_h = onehot_encoder(hs[i], GRAPPA_HS)
         
