@@ -68,7 +68,7 @@ function cosmospace_step(g, Θ, Ψ, live)
     α = COGNAC_SOLVER.damping
     rhs = .-log.(Ψ' * (Θ .* exp.(g)))
     gnew = ifelse.(live, (1 - α) .* g .+ α .* rhs, zero(eltype(g)))
-    return gnew, maximum(abs.(gnew .- g)[live])
+    return gnew, CL.Solvers.dnorm(vec(gnew), vec(g), Inf)
 end
 
 # iterative cosmospace solver
