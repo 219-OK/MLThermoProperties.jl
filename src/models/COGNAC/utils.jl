@@ -81,3 +81,18 @@ function cognac_gnngraph(smiles::AbstractVector{<:AbstractString})
     )
     return graph, molecule_index
 end
+
+# every atom is its own group, unique to this mixture: "<molecule>_<group><element>"
+function cognac_group_names(graph::GNNGraph, molecule_index)
+    element(z) = MolecularGraph.ATOMTABLE[z]["Symbol"]
+    return ["$(molecule_index[k])_$(k)$(element(graph.ndata.x[1, k]))"
+            for k in eachindex(molecule_index)]
+end
+
+function cognac_groups(components, group_names, molecule_index, grouptype::Symbol)
+    return GroupParam(
+        [(components[i], [group_names[k] => 1 for k in findall(==(i), molecule_index)])
+         for i in eachindex(components)],
+        grouptype, String[]
+    )
+end
