@@ -45,6 +45,7 @@ function (tokenizer::ChemBERTaTokenizer)(smiles::AbstractString)
     # Truncate if exceeding max length
     if length(ids) > tokenizer.max_length
         resize!(ids, tokenizer.max_length)
+        ids[end] = tokenizer.sep_id
     end
     return ids
 end
