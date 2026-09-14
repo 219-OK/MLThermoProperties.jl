@@ -2,16 +2,13 @@
     theta
     alpha
     phi
-    __cache_θs
 end
 
 Clapeyron.is_splittable(::ogHANNALux) = false
 
-function (model::ogHANNALux)((T,x,embs), ps, st)
+function (model::ogHANNALux)((T,x,θs), ps, st)
 
-    θs = isnothing(model.__cache_θs) ?
-        [first(model.theta(_emb, ps.theta, st.theta)) for _emb in embs] :
-        model.__cache_θs
+    length(x) == 1 && return zero(Base.promote_eltype(T,x)), st
 
     # Calculate cosine similarity and distance between the two components
     cosine_sim_ij = cosine_similarity(θs[1],θs[2])
