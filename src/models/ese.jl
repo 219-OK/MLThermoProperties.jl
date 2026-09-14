@@ -44,12 +44,12 @@ using MLThermoProperties, EntropyScaling
 
 model = ESE(["ethanol", "acetonitrile"])
 D_matrix = inf_diffusion_coefficient(model, 1e5, 300.)
-D_eth = inf_diffusion_coefficient(model, 1e5, 300.; solute="ethanol", solvent="acetonitril")
+D_eth = inf_diffusion_coefficient(model, 1e5, 300.; solute="ethanol", solvent="acetonitrile")
 ```
 """
 ESE
 
-CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv", "properties/molarmass.csv"]
+CL.default_locations(::Type{ESE}) = ["properties/identifiers.csv"]
 get_model_path(::Type{ESE}) = joinpath(DB_PATH, "ESE")
 
 function ESE(components;
@@ -64,7 +64,8 @@ function ESE(components;
     N_comps = length(_components)
     
     _params = CL.getparams(components,CL.default_locations(ESE);
-        userlocations,ignore_headers=["dipprnumber","inchikey","cas","canonicalsmiles","Mw"])
+        userlocations,ignore_headers=["dipprnumber","inchikey","cas","canonicalsmiles"],
+        ignore_missing_singleparams=["Mw"])
 
     smiles = _params["SMILES"].values
 
@@ -85,7 +86,14 @@ function ESE(components;
         end
     end
 
-    params = ESEParam(b_ij, SingleParam("Mw",_components,first.(Xs)*1e3))
+    Mw = _params["Mw"]
+    for i in eachindex(_components)
+        Mw.ismissingvalues[i] || continue
+        Mw.values[i] = first(Xs[i])*1e3
+        Mw.ismissingvalues[i] = false
+    end
+
+    params = ESEParam(b_ij, Mw)
     _vismodel = _build_es_model(_components, vismodel; userlocations=vis_userlocations)
     _pure_vismodels = _split_es_model(_vismodel)
     references = String["10.48550/arXiv.2603.02761"]

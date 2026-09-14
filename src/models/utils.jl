@@ -27,6 +27,9 @@ end
 function _build_es_model(components, model::Vector{<:ES.AbstractTransportPropertyModel}; kwargs...)
     return model
 end
+function _build_es_model(components, model::ES.AbstractTransportPropertyModel; kwargs...)
+    return fill(model, length(components))
+end
 function _build_es_model(components, ::Type{MODEL}; kwargs...) where {MODEL<:ES.AbstractEntropyScalingModel}
     return MODEL(components; kwargs...)
 end
