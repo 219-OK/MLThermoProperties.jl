@@ -124,10 +124,15 @@ end
 
 function CL.saturation_temperature_impl(model::GRAPPAModel, p, ::CL.SaturationCorrelation)
     nan = zero(p)/zero(p)
-    
+    Tc = only(model.params.Tc.ismissingvalues) ? nan : only(model.params.Tc.values)
     A = only(model.params.A.values)
     B = only(model.params.B.values)
     C = only(model.params.C.values)
+
+    if !isnan(Tc) && p > exp(A - B/(Tc + C)) * 1000
+        @warn "Pressure above critical pressure!"
+        return nan, nan, nan
+    end
 
     if p < 1. || p > 10e7
         @warn "GRAPPA model was only trained for pressures from 1 to 10e7 Pa. Pressure $(p) Pa is out of this range!"
