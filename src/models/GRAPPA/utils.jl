@@ -33,15 +33,16 @@ function atom_features(mol)
     end
 
     # check if molecule contains unsupported atoms
+    # (explicit H nodes are dropped in `molgraph_to_gnngraph` and are not featurized)
     for sym in syms
-        if sym ∉ GRAPPA_ATOMS
+        if sym != :H && sym ∉ GRAPPA_ATOMS
             error("Molecule contains atom $(sym), but only $(GRAPPA_ATOMS) are allowed!")
         end
     end
 
     rings = is_in_ring(mol)
     aroms = is_aromatic(mol)
-    hybs = hybridization(mol)
+    hybs = rdkit_hybridization(mol)
     hs = total_hydrogens(mol) 
     
     for i in 1:num_atoms
@@ -52,13 +53,7 @@ function atom_features(mol)
         # aromatic
         f_arom = Float32[aroms[i] ? 1.0 : 0.0]
         # hybridisation
-        current_hyb = Symbol(uppercase(string(hybs[i])))
-
-        # hybridisation fix for halogens (RDKit calculates SP3 for halogens, MolecularGraph nothing)
-        if syms[i] ∈ [:F, :Cl, :Br, :I] && current_hyb ∉ GRAPPA_HYB
-            current_hyb = :SP3
-        end
-        f_hyb  = onehot_encoder(current_hyb, GRAPPA_HYB)
+        f_hyb  = onehot_encoder(hybs[i], GRAPPA_HYB)
         
         # amount connections
         heavy_degree = 0    # count only heavy atom neighbors like RDKit

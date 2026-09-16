@@ -34,7 +34,7 @@ function LuxCore.initialstates(rng::AbstractRNG, l::LipschitzDense)
         u = randn(rng, Float32, l.out_dims), 
         v = randn(rng, Float32, l.in_dims),
         __scale_w = one(Float32),
-        __cache_w = zeros(Float32, l.out_dims, l.in_dims),
+        __cache_w = nothing,
     )
 end
 
@@ -42,20 +42,22 @@ LuxCore.parameterlength(d::LipschitzDense) = d.out_dims * d.in_dims + d.out_dims
 LuxCore.statelength(d::LipschitzDense) = 4
 LuxCore.outputsize(d::LipschitzDense, _, ::AbstractRNG) = (d.out_dims,)
 
+# Lux states are immutable, so a new scaling is returned in a new state
+_rescale(st, scale, weight) = merge(st, (; __scale_w = scale, __cache_w = weight .* scale))
+
 function (l::LipschitzDense)(x::AbstractArray, ps, st::NamedTuple)
     if iswarmstart(st)
-        st.__scale_w = one(eltype(ps.weight))
-        st.__cache_w .= ps.weight
+        st = _rescale(st, one(eltype(ps.weight)), ps.weight)
     elseif LuxOps.istraining(st)
         power_iteration!(st.u, st.v, ps.weight)
         largest_sv = dot(st.u, ps.weight, st.v)
-        st.__scale_w = softplus(ps.ci[1]) / (largest_sv + l.eps)
-        st.__cache_w .= ps.weight
-        st.__cache_w .*= st.__scale_w
+        st = _rescale(st, softplus(ps.ci[1]) / (largest_sv + l.eps), ps.weight)
     end
+    # an unprimed cache falls back to the scaled parameters
+    w = isnothing(st.__cache_w) ? ps.weight .* st.__scale_w : st.__cache_w
     _x = Lux.Utils.make_abstract_matrix(x)
     y = Lux.Utils.matrix_to_array(
-        fused_dense_bias_activation(l.activation, st.__cache_w, _x, ps.bias), x
+        fused_dense_bias_activation(l.activation, w, _x, ps.bias), x
     )
     return y, st
 end
@@ -64,8 +66,7 @@ end
 prime_scaled_weights!(ps, st) = nothing
 function prime_scaled_weights!(ps::NamedTuple, st::NamedTuple)
     if haskey(st, :__cache_w)
-        st.__cache_w .= ps.weight
-        st.__cache_w .*= st.__scale_w
+        isnothing(st.__cache_w) || (st.__cache_w .= ps.weight .* st.__scale_w)
     else
         for k in keys(st)
             haskey(ps, k) && prime_scaled_weights!(ps[k], st[k])
