@@ -41,9 +41,9 @@ are the solution of the COSMOSPACE self-consistency condition
 lnΓₖ/Qₖ = -log(∑ₘ Θₘ exp(lnΓₘ/Qₘ) Ψₘₖ)
 ```
 
-which is solved by damped fixed-point iteration with the settings the checkpoint was
-trained with. This is more accurate at infinite dilution, but the parameter table alone is
-not enough to reproduce the model in a stock mod. UNIFAC implementation.
+which is solved by damped fixed-point iteration to a residual of `COGNAC_SOLVER.tol`.
+This is more accurate at infinite dilution, but the parameter table alone is not enough to
+reproduce the model in a stock mod. UNIFAC implementation.
 
 ## Example
 ```julia
@@ -60,15 +60,16 @@ activity_coefficient(model, 1e5, 298.15, [0.3, 0.7])
 """
 COGNACimp
 
-# solver settings
-const COGNAC_SOLVER = (damping = 0.7, tol = 5.0e-3, max_iter = 25, extra_steps = 10)
+const COGNAC_SOLVER = (damping = 0.7, tol = 1.0e-12, max_iter = 200)
 
-# one damped application of the COSMOSPACE map, with the largest update it made on `live`
+# one damped application of the COSMOSPACE map, with the residual at the incoming `g`
+# (dead groups are pinned to 0 and must be excluded, or the residual never converges)
 function cosmospace_step(g, Θ, Ψ, live)
     α = COGNAC_SOLVER.damping
     rhs = .-log.(Ψ' * (Θ .* exp.(g)))
     gnew = ifelse.(live, (1 - α) .* g .+ α .* rhs, zero(eltype(g)))
-    return gnew, CL.Solvers.dnorm(vec(gnew), vec(g), Inf)
+    resid = CL.Solvers.dnorm(vec(ifelse.(live, rhs, g)), vec(g), Inf)
+    return gnew, resid
 end
 
 # iterative cosmospace solver
@@ -78,9 +79,6 @@ function cosmospace_g(Θ, Ψ, live)
     for _ in 1:COGNAC_SOLVER.max_iter
         g, Δ = cosmospace_step(g, Θ, Ψ, live)
         Δ ≤ COGNAC_SOLVER.tol && break
-    end
-    for _ in 1:COGNAC_SOLVER.extra_steps
-        g, _ = cosmospace_step(g, Θ, Ψ, live)
     end
     return g
 end
