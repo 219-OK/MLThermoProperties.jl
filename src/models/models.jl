@@ -6,7 +6,7 @@ include("HANNA/hanna.jl")
 include("COGNAC/cognac.jl")
 
 # Show method
-const MODELS = Union{GRAPPA, ogHANNA, multHANNA, ESE, COGNAClite, COGNACexp, COGNACimp}
+const MODELS = Union{GRAPPA, ogHANNA, multHANNA, ESE, COGNACexp, COGNACimp}
 
 function Base.show(io::IO, ::MIME"text/plain", model::MODELS)
     print(io, nameof(typeof(model)))

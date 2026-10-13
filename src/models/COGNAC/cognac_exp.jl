@@ -1,4 +1,4 @@
-struct COGNACexp{c<:CL.EoSModel,T} <: COGNACfullModel
+struct COGNACexp{c<:CL.EoSModel,T} <: COGNACModel
     components::Array{String,1}
     groups::GroupParam{T}
     params::CL.UNIFACParam{T}
@@ -13,10 +13,11 @@ function COGNACexp(components, groups, params, puremodel, references, unifac_cac
     return COGNACexp{c,T}(components, groups, params, puremodel, references, unifac_cache)
 end
 
-COGNACexp(components; kwargs...) = _cognac_full(COGNACexp, components; kwargs...)
+COGNACexp(components; kwargs...) = _cognac(COGNACexp, components; kwargs...)
 
 """
     COGNACexp <: UNIFACModel
+    COGNAC
 
     COGNACexp(components;
     puremodel = BasicIdeal,
@@ -38,6 +39,8 @@ The mod. UNIFAC (Dortmund) parameters `R`, `Q` and `Aᵢⱼ`, `Bᵢⱼ`, `Cᵢ�
 atom/atom pair based on a graph neural network.
 The parameters are only valid for the mixture they were built for; `COGNACexp` therefore
 predicts them on model construction.
+Symmetry-equivalent atoms of a molecule (the two H of water, the six C of benzene) share
+their parameters exactly and are merged into one group counted by `νₖᵢ`.
 The group activity coefficients then follow from the closed-form mod. UNIFAC equations.
 
 ## Example
@@ -54,3 +57,6 @@ activity_coefficient(model, 1e5, 298.15, [0.3, 0.7])
 1. Hoffmann et al., to be published.
 """
 COGNACexp
+
+# no mask needed: out-of-block entries come out finite and `νₖᵢ = 0` drops them
+cognac_g!(::COGNACexp, g, Θ, Ψ, _live) = cognac_g_explicit!(g, similar(Θ), Θ, Ψ)

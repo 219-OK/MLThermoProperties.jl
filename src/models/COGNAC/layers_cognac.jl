@@ -58,62 +58,11 @@ function (model::LocalMPNNLux)(graph::GNNGraph, h, e, ps, st::NamedTuple)
     return h, st
 end
 
-struct COGNACliteLux{T} <:
-       LuxCore.AbstractLuxContainerLayer{(:atom_encoder, :edge_encoder, :gnn, :radius_volume_head, :interaction_head)}
-    atom_encoder::Chain
-    edge_encoder::Chain
-    gnn::LocalMPNNLux
-    radius_volume_head::Chain
-    interaction_head::Chain
-    rbf_sigma::T
-    eps::T
-end
-
-function COGNACliteLux(; hidden_dim = 256, num_layers = 4, rbf_sigma = 0.5f0, eps = 1.0f-8)
-    return COGNACliteLux(
-        categorical_encoder(COGNAC_ATOM_VOCAB, hidden_dim),
-        categorical_encoder(COGNAC_BOND_VOCAB, hidden_dim),
-        LocalMPNNLux(hidden_dim, num_layers),
-        Chain(
-            Dense(hidden_dim => hidden_dim, swish),
-            Dense(hidden_dim => hidden_dim ÷ 2, swish),
-            Dense(hidden_dim ÷ 2 => 2),
-        ),
-        Chain(
-            Dense(3hidden_dim => hidden_dim, swish),
-            Dense(hidden_dim => hidden_dim ÷ 2, swish),
-            Dense(hidden_dim ÷ 2 => 1),
-        ),
-        rbf_sigma,
-        eps,
-    )
-end
-
 # per-atom embeddings after message passing
 function atom_embeddings(model, graph::GNNGraph, ps, st::NamedTuple)
     h, _ = model.atom_encoder(encoder_input(graph.ndata.x), ps.atom_encoder, st.atom_encoder)
     e, _ = model.edge_encoder(encoder_input(graph.edata.e), ps.edge_encoder, st.edge_encoder)
     return first(model.gnn(graph, h, e, ps.gnn, st.gnn))
-end
-
-function (model::COGNACliteLux)(graph::GNNGraph, ps, st::NamedTuple)
-    h = atom_embeddings(model, graph, ps, st)
-
-    raw, _ = model.radius_volume_head(h, ps.radius_volume_head, st.radius_volume_head)
-    R = (NNlib.softplus.(view(raw, 1, :)) .+ model.eps) ./ COGNAC_V_REF
-    Q = (NNlib.softplus.(view(raw, 2, :)) .+ model.eps) ./ COGNAC_A_REF
-
-    n = size(h, 2)
-    ia, ib = repeat(1:n, outer = n), repeat(1:n, inner = n)
-    ha, hb = h[:, ia], h[:, ib]
-    pair, _ = model.interaction_head(
-        vcat(ha .+ hb, abs.(ha .- hb), ha .* hb), ps.interaction_head, st.interaction_head
-    )
-    # RBF gate forces a_ab == 0 for identical embeddings, in particular on the diagonal
-    gate = 1 .- exp.(-vec(mean(abs2.(ha .- hb); dims = 1)) ./ (model.rbf_sigma^2 + model.eps))
-    A = reshape(vec(pair) .* gate, n, n)
-
-    return (R, Q, A), st
 end
 
 struct COGNACLux{T} <:
@@ -145,8 +94,7 @@ function COGNACLux(; hidden_dim = 256, num_layers = 4, eps = 1.0f-8)
     )
 end
 
-# c_ab → c_ab - (c_aa + c_bb)/2: turns the head's output into exchange coefficients and is
-# identically zero on the diagonal, so Ψ_aa == 1 at every temperature
+# c_ab → c_ab - (c_aa + c_bb)/2: exchange coefficients, zero on the diagonal, so Ψ_aa == 1
 function exchange_subtract(M::AbstractMatrix)
     d = diag(M)
     return M .- (d .+ d') ./ 2

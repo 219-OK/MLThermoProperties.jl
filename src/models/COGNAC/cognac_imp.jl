@@ -1,4 +1,4 @@
-struct COGNACimp{c<:CL.EoSModel,T} <: COGNACfullModel
+struct COGNACimp{c<:CL.EoSModel,T} <: COGNACModel
     components::Array{String,1}
     groups::GroupParam{T}
     params::CL.UNIFACParam{T}
@@ -13,7 +13,7 @@ function COGNACimp(components, groups, params, puremodel, references, unifac_cac
     return COGNACimp{c,T}(components, groups, params, puremodel, references, unifac_cache)
 end
 
-COGNACimp(components; kwargs...) = _cognac_full(COGNACimp, components; kwargs...)
+COGNACimp(components; kwargs...) = _cognac(COGNACimp, components; kwargs...)
 
 """
     COGNACimp <: UNIFACModel
@@ -41,9 +41,9 @@ are the solution of the COSMOSPACE self-consistency condition
 lnΓₖ/Qₖ = -log(∑ₘ Θₘ exp(lnΓₘ/Qₘ) Ψₘₖ)
 ```
 
-which is solved by damped fixed-point iteration to a residual of `COGNAC_SOLVER.tol`.
-This is more accurate at infinite dilution, but the parameter table alone is not enough to
-reproduce the model in a stock mod. UNIFAC implementation.
+which is solved by damped fixed-point iteration, started from the explicit closure (the two
+are nested). This is more accurate at infinite dilution, but the parameter table alone is
+not enough to reproduce the model in a stock mod. UNIFAC implementation.
 
 ## Example
 ```julia
@@ -60,56 +60,34 @@ activity_coefficient(model, 1e5, 298.15, [0.3, 0.7])
 """
 COGNACimp
 
-const COGNAC_SOLVER = (damping = 0.7, tol = 1.0e-12, max_iter = 200)
+const COGNAC_SOLVER = (damping = 0.7, tol = 5.0e-3, max_iter = 25, extra_steps = 10)
 
-# one damped application of the COSMOSPACE map, with the residual at the incoming `g`
-# (dead groups are pinned to 0 and must be excluded, or the residual never converges)
-function cosmospace_step(g, Θ, Ψ, live)
+# one damped application of the COSMOSPACE map, returning max|Δg| over the live groups
+function cosmospace_step!(g, w, rhs, Θ, Ψ, live)
     α = COGNAC_SOLVER.damping
-    rhs = .-log.(Ψ' * (Θ .* exp.(g)))
-    gnew = ifelse.(live, (1 - α) .* g .+ α .* rhs, zero(eltype(g)))
-    resid = CL.Solvers.dnorm(vec(ifelse.(live, rhs, g)), vec(g), Inf)
-    return gnew, resid
+    w .= Θ .* exp.(g)
+    mul!(rhs, transpose(Ψ), w)
+    Δ = zero(eltype(g))
+    for k in eachindex(g)
+        (live === nothing || live[k]) || continue
+        gₖ = (1 - α) * g[k] - α * log(rhs[k])
+        Δ = max(Δ, abs(gₖ - g[k]))
+        g[k] = gₖ
+    end
+    return Δ
 end
 
-# iterative cosmospace solver
-function cosmospace_g(Θ, Ψ, live)
-    s = Ψ' * Θ
-    g = ifelse.(live, 1 .- log.(s) .- Ψ * (Θ ./ s), zero(eltype(s)))
+# lnΓₖ/Qₖ as the COSMOSPACE fixed point, warm-started at the nested explicit closure
+function cognac_g!(::COGNACimp, g, Θ, Ψ, live)
+    w, rhs = similar(Θ), similar(Θ)
+    cognac_g_explicit!(g, w, Θ, Ψ)
+    live === nothing || (g .= ifelse.(live, g, zero(eltype(g))))
+
     for _ in 1:COGNAC_SOLVER.max_iter
-        g, Δ = cosmospace_step(g, Θ, Ψ, live)
-        Δ ≤ COGNAC_SOLVER.tol && break
+        cosmospace_step!(g, w, rhs, Θ, Ψ, live) ≤ COGNAC_SOLVER.tol && break
+    end
+    for _ in 1:COGNAC_SOLVER.extra_steps
+        cosmospace_step!(g, w, rhs, Θ, Ψ, live)
     end
     return g
-end
-
-function CL.lnγ_impl!(lnγ, model::COGNACimp, p, T, z)
-    x = z ./ sum(z)
-    Q = model.params.Q.values
-    ν = model.groups.n_flattenedgroups
-    Ψ = CL.Ψ(model, p, T, z)
-
-    # mixture environment, and one column per pure-component reference
-    Θ = Q .* sum(x[i] .* ν[i] for i in eachindex(x))
-    Θ ./= sum(Θ)
-    Θᵢ = reduce(hcat, (Q .* ν[i]) ./ dot(Q, ν[i]) for i in eachindex(x))
-    liveᵢ = reduce(hcat, ν) .> 0
-
-    lnΓ = Q .* cosmospace_g(Θ, Ψ, trues(length(Q)))
-    lnΓᵢ = Q .* cosmospace_g(Θᵢ, Ψ, liveᵢ)
-
-    r, q, q_p = model.unifac_cache.r, model.unifac_cache.q, model.unifac_cache.q_p
-    V = r ./ dot(x, r)
-    V′ = q_p ./ dot(x, q_p)     # the Dortmund r^(3/4) modification
-    F = q ./ dot(x, q)
-    for i in eachindex(x)
-        # z/2 = 5 with UNIFAC's coordination number z = 10
-        lnγ[i] = 1 - V′[i] + log(V′[i]) - 5 * q[i] * (1 - V[i] / F[i] + log(V[i] / F[i]))
-        lnγ[i] += dot(ν[i], lnΓ) - dot(ν[i], view(lnΓᵢ, :, i))
-    end
-    return lnγ
-end
-
-function CL.excess_gibbs_free_energy(model::COGNACimp, p, T, z) 
-    return CL.Rgas(model) * T * dot(z, CL.lnγ(model, p, T, z))
 end

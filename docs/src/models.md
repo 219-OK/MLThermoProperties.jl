@@ -52,16 +52,16 @@ COGNAC (COsmo-Guided Neural Activity Coefficients) predicts the group parameters
 In contrast to groups-based UNIFAC, every atom is its own group.
 Since the group table depends on the mixture, it is predicted on model construction and is only valid for that set of components.
 Hydrogens bound to a heteroatom are separate groups, C-H hydrogens are folded into the carbon's features.
-There are several variants:
+Symmetry-equivalent atoms of a molecule (the two hydrogens of water, the six carbons of benzene) are one group counted by ``\nu_{ki}``, exactly as mod. UNIFAC counts "2 x CH3".
+Both variants are based on modified UNIFAC (Dortmund): the network predicts ``R_a``, ``Q_a`` and the three coefficients of the interaction polynomial per atom pair ``a_{ab}``, ``b_{ab}``, and ``c_{ab}``. They differ only in the residual term:
 
-- `COGNACexp` and `COGNACimp` are based on modified UNIFAC (Dortmund): the network predicts ``R_a``, ``Q_a`` and the three coefficients of the interaction polynomial per atom pair ``a_{ab}``, ``b_{ab}``, and ``c_{ab}``. The two differ only in the residual term: `COGNACexp` evaluates the group activity coefficients from the closed-form mod. UNIFAC expression, `COGNACimp` as the solution of the COSMOSPACE self-consistency condition.
+- `COGNACexp` (aliased `COGNAC`) evaluates the group activity coefficients from the closed-form mod. UNIFAC expression, which makes its parameter table a drop-in for any mod. UNIFAC implementation.
 
-- `COGNAClite` is based on original UNIFAC, so the network predicts ``R_a``, ``Q_a`` per atom and ``a_{ab}`` per atom pair of the queried mixture, and the activity coefficients then follow from the closed-form original UNIFAC equations.
+- `COGNACimp` evaluates them as the solution of the COSMOSPACE self-consistency condition, which is more accurate at infinite dilution but needs the solver as well as the table.
 
 ```@docs
 MLThermoProperties.COGNACexp
 MLThermoProperties.COGNACimp
-MLThermoProperties.COGNAClite
 ```
 
 ## ESE
