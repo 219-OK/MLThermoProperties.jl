@@ -38,7 +38,7 @@ function atom_features(mol)
 
     rings = is_in_ring(mol)
     aroms = is_aromatic(mol)
-    hybs = hybridization(mol)
+    hybs = rdkit_hybridization(mol)
     hs = total_hydrogens(mol)
     degrees = heavy_degrees(mol)
 

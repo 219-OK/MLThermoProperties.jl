@@ -65,19 +65,18 @@ function multHANNA(components;
         pure_userlocations = String[],
         verbose = false,
         reference_state = nothing,
-        use_cache = true,
         ensemble = (:),
 )
     return _build_multhanna(
         multHANNA, components; 
-        puremodel, userlocations, pure_userlocations, verbose, reference_state, use_cache, ensemble
+        puremodel, userlocations, pure_userlocations, verbose, reference_state, ensemble
     )
 end
 
 # Build a multHANNA model
 function _build_multhanna(
     MODEL, components; 
-    puremodel, userlocations, pure_userlocations, verbose, reference_state, use_cache, ensemble
+    puremodel, userlocations, pure_userlocations, verbose, reference_state, ensemble
 )
     # loading SMILES und Parameter
     _components = CL.format_components(components)
@@ -110,7 +109,7 @@ function _build_multhanna(
         LipschitzDense(N_NODES, N_NODES, silu),
         LipschitzDense(N_NODES, 1, identity)
     )    
-    nns = [_build_multhanna_lux(MODEL, theta, alpha, phi, _components; use_cache, N_NODES) for _ in eachindex(ps)]
+    nns = [_build_multhanna_lux(MODEL, theta, alpha, phi) for _ in eachindex(ps)]
     smodels = StatefulLuxLayer.(nns[_ens], ps[_ens], Lux.testmode.(st[_ens]))
 
     # Precompute the Lipschitz-scaled weights once (inference reuses them)
@@ -149,7 +148,7 @@ end
 
 _get_ensemble(x::Colon, N) = 1:N
 _get_ensemble(x::Int64, N) = x ≤ N ? [x] : error("`ensemble` must be ≤ $(N)!")
-_get_ensemble(x::AbstractRange, N) = maximum(x) ≤ N ? [x] : error("`ensemble` must be ≤ $(N)!")
+_get_ensemble(x::AbstractRange, N) = maximum(x) ≤ N ? x : error("`ensemble` must be ≤ $(N)!")
 
 # gE
 function CL.excess_gibbs_free_energy(model::multHANNAModel, p, T, z)
