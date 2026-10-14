@@ -2,7 +2,6 @@
 const STEREO_NONE = 0
 const STEREO_Z    = 1  # cis
 const STEREO_E    = 2  # trans
-const POSSIBLE_STEREO = [STEREO_NONE, STEREO_Z, STEREO_E]
 
 const FEATURE_LABELS = [
     "is_single", "is_double", "is_triple", "is_aromatic",
@@ -10,106 +9,159 @@ const FEATURE_LABELS = [
     "stereo_NONE", "stereo_Z", "stereo_E"
 ]
 
-bond_feature_labels() = FEATURE_LABELS
+# Atoms whose electrons are available for conjugation
+const CONJUGATION_ATOMS = (:B, :C, :N, :O, :Si)
 
-# One-hot encode val among possible_values
-function one_of_k_encoding(val, possible_values)
-    encoding = zeros(Float32, length(possible_values))
-    idx = findfirst(==(val), possible_values)
-    isnothing(idx) && error("input $val not in allowable set $possible_values")
-    encoding[idx] = 1.0f0
-    return encoding
-end
+# Default (lowest) valence per element, used to detect hypervalent atoms.
+const DEFAULT_VALENCE = Dict(
+    :B => 3, :C => 4, :N => 3, :O => 2, :Si => 4, :P => 3, :S => 2,
+    :F => 1, :Cl => 1, :Br => 1, :I => 1,
+)
 
 function is_conjugated(mol)
-    hyb = hybridization(mol)
-    edge_list = collect(edges(mol))
-    n = ne(mol)
+    syms = atom_symbol(mol)
+    val = valence(mol)
+    conn = connectivity(mol)
+    lp = lone_pair(mol)
+    hs = total_hydrogens(mol)
+    orders = bond_order(mol)
+    arom = is_edge_aromatic(mol)
+    ernk = MolecularGraph.edge_rank(mol)
 
-    # Find bonds where both endpoints are sp2 or sp
-    sp2_bond = falses(n)
-    for (i, e) in enumerate(edge_list)
-        sp2_bond[i] = (hyb[src(e)] in (:sp2, :sp)) && (hyb[dst(e)] in (:sp2, :sp))
-    end
+    # atoms that can contribute electrons to a conjugated system
+    cand = [syms[i] ∈ CONJUGATION_ATOMS && (lp[i] > 0 || val[i] > conn[i]) for i in vertices(mol)]
 
-    # Build adjacency among sp2/sp bonds (two bonds are adjacent if they share a vertex)
-    parent = collect(1:n)
-    function find(x)
-        while parent[x] != x
-            parent[x] = parent[parent[x]]
-            x = parent[x]
+    result = falses(ne(mol))
+    for i in vertices(mol)
+        cand[i] || continue
+        nbrs = neighbors(mol, i)
+        # RDKit only conjugates atoms with two or three substituents
+        2 <= count(w -> syms[w] != :H, nbrs) + hs[i] <= 3 || continue
+        for u in nbrs
+            e1 = MolecularGraph.edge_rank(ernk, i, u)
+            (orders[e1] > 1 || arom[e1]) || continue
+            # RDKit does not conjugate through a hypervalent partner (P ylides, sulfoximines)
+            val[u] <= get(DEFAULT_VALENCE, syms[u], 0) || continue
+            for w in nbrs
+                (w == u || !cand[w]) && continue
+                result[e1] = true
+                result[MolecularGraph.edge_rank(ernk, i, w)] = true
+            end
         end
-        return x
-    end
-    function union!(a, b)
-        ra, rb = find(a), find(b)
-        ra != rb && (parent[ra] = rb)
-    end
-
-    # For each vertex, collect incident sp2/sp bond indices and union them
-    vertex_bonds = [Int[] for _ in 1:Graphs.nv(mol)]
-    for (i, e) in enumerate(edge_list)
-        sp2_bond[i] || continue
-        push!(vertex_bonds[src(e)], i)
-        push!(vertex_bonds[dst(e)], i)
-    end
-    for vb in vertex_bonds
-        for j in 2:length(vb)
-            union!(vb[1], vb[j])
-        end
-    end
-
-    # Count component sizes
-    comp_size = Dict{Int,Int}()
-    for i in 1:n
-        sp2_bond[i] || continue
-        r = find(i)
-        comp_size[r] = get(comp_size, r, 0) + 1
-    end
-
-    # A bond is conjugated if its component has ≥ 2 bonds
-    result = falses(n)
-    for i in 1:n
-        sp2_bond[i] || continue
-        result[i] = comp_size[find(i)] >= 2
     end
     return result
 end
 
+# Hybridization following RDKit: a heteroatom is only promoted from sp3 to sp2 if it
+# carries a conjugated bond (MolecularGraph promotes next to any sp/sp2 neighbor), and
+# halogens are SP3 (MolecularGraph assigns them nothing).
+_spn(n) = n == 4 ? :SP3 : n == 3 ? :SP2 : n == 2 ? :SP : :none
+
+function rdkit_hybridization(mol)
+    syms = atom_symbol(mol)
+    val = valence(mol)
+    conn = connectivity(mol)
+    lp = lone_pair(mol)
+    conj = is_conjugated(mol)
+    ernk = MolecularGraph.edge_rank(mol)
+
+    hybs = fill(:none, nv(mol))
+    for i in vertices(mol)
+        if syms[i] ∈ (:F, :Cl, :Br, :I)
+            hybs[i] = :SP3
+        elseif syms[i] ∈ (:B, :C, :N, :O, :Si, :P, :S)
+            hybs[i] = _spn(conn[i] + lp[i])
+        end
+    end
+    for i in vertices(mol)
+        syms[i] ∈ (:O, :N, :S) || continue
+        (hybs[i] === :SP3 && val[i] < 4 && lp[i] > 0) || continue
+        any(w -> conj[MolecularGraph.edge_rank(ernk, i, w)], neighbors(mol, i)) && (hybs[i] = :SP2)
+    end
+    return hybs
+end
+
+# absolute E/Z assignment 
+function _cip_expand(mol, orders, ernk, hs, frontier)
+    next = Tuple{Int,Int,Bool}[]
+    for (v, p, isdup) in frontier
+        (isdup || v == 0) && continue
+        # a multiple bond duplicates the atom at both of its ends
+        append!(next, ((p, v, true) for _ in 2:orders[MolecularGraph.edge_rank(ernk, v, p)]))
+        for w in neighbors(mol, v)
+            w == p && continue
+            push!(next, (w, v, false))
+            e = MolecularGraph.edge_rank(ernk, v, w)
+            append!(next, ((w, v, true) for _ in 2:orders[e]))
+        end
+        append!(next, ((0, v, true) for _ in 1:hs[v]))
+    end
+    return next
+end
+
+# Compare substituents `a` and `b` of `root` sphere by sphere (1: a wins, -1: b wins, 0: tie)
+function cip_rank(mol, a, b, root; maxdepth=12, maxwidth=4096)
+    anum = atom_number(mol)
+    orders = bond_order(mol)
+    hs = implicit_hydrogens(mol)
+    ernk = MolecularGraph.edge_rank(mol)
+    # atomic numbers of one sphere, highest first; v == 0 marks an implicit hydrogen
+    numbers(f) = sort!([v == 0 ? 1 : anum[v] for (v, _, _) in f]; rev=true)
+
+    fa = [(a, root, false)]
+    fb = [(b, root, false)]
+    for _ in 1:maxdepth
+        (isempty(fa) && isempty(fb)) && return 0
+        c = cmp(numbers(fa), numbers(fb))   # lexicographic: the shorter sphere loses
+        c == 0 || return c
+        (length(fa) > maxwidth || length(fb) > maxwidth) && return 0
+        fa = _cip_expand(mol, orders, ernk, hs, fa)
+        fb = _cip_expand(mol, orders, ernk, hs, fb)
+    end
+    return 0
+end
+
+# Highest ranked neighbor of `atom`, ignoring `exclude`; `nothing` if the two rank equally
+function cip_winner(mol, atom, exclude)
+    nbrs = [w for w in neighbors(mol, atom) if w != exclude]
+    # the second substituent is an implicit hydrogen and always ranks lowest
+    length(nbrs) == 1 && return atom_symbol(mol)[only(nbrs)] === :H ? nothing : only(nbrs)
+    length(nbrs) == 2 || return nothing
+    c = cip_rank(mol, nbrs[1], nbrs[2], atom)
+    return c == 0 ? nothing : nbrs[c > 0 ? 1 : 2]
+end
+
+function bond_stereo(mol, e, sb)
+    hi_src = cip_winner(mol, src(e), dst(e))
+    hi_dst = cip_winner(mol, dst(e), src(e))
+    (isnothing(hi_src) || isnothing(hi_dst)) && return STEREO_NONE
+    is_cis = sb.is_cis ⊻ (hi_src != sb.first) ⊻ (hi_dst != sb.second)
+    return is_cis ? STEREO_Z : STEREO_E
+end
+
 # Extract bond features for every bond in both directions (i→j and j→i)
 function get_all_bond_features(mol)
-    orders   = bond_order(mol)
-    arom     = is_edge_aromatic(mol)
-    in_ring  = is_edge_in_ring(mol)
-    conj     = is_conjugated(mol)
+    orders  = bond_order(mol)
+    arom    = is_edge_aromatic(mol)
+    in_ring = is_edge_in_ring(mol)
+    conj    = is_conjugated(mol)
 
     ernk = MolecularGraph.edge_rank(mol)
-    stereo_types = fill(STEREO_NONE, ne(mol))
+    stereo = fill(STEREO_NONE, ne(mol))
     for (edge, sb) in mol[:stereobond]
-        stereo_types[ernk[edge]] = sb.is_cis ? STEREO_Z : STEREO_E
+        stereo[ernk[edge]] = bond_stereo(mol, edge, sb)
     end
 
-    n_feats = length(FEATURE_LABELS)
-    result = Matrix{Float32}(undef, 2 * ne(mol), n_feats)
-
-    for (i, e) in enumerate(edges(mol))
-        bo       = orders[i]
-        is_arom  = arom[i]
-
-        is_single = !is_arom && bo == 1
-        is_double = !is_arom && bo == 2
-        is_triple = !is_arom && bo == 3
-
-        stereo_enc = one_of_k_encoding(stereo_types[i], POSSIBLE_STEREO)
-
+    result = Matrix{Float32}(undef, 2 * ne(mol), length(FEATURE_LABELS))
+    for i in 1:ne(mol)
+        a, s = arom[i], stereo[i]
         fv = Float32[
-            is_single, is_double, is_triple, is_arom,
-            conj[i], in_ring[i], stereo_enc...
+            !a && orders[i] == 1, !a && orders[i] == 2, !a && orders[i] == 3, a,
+            conj[i], in_ring[i],
+            s == STEREO_NONE, s == STEREO_Z, s == STEREO_E,
         ]
         result[2i - 1, :] .= fv
         result[2i,     :] .= fv
     end
     return result
 end
-
-get_all_bond_features(smiles::AbstractString) = get_all_bond_features(smilestomol(smiles))

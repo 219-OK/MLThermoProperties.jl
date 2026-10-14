@@ -1,4 +1,4 @@
-abstract type diffHANNAModel <: AbstractMultHANNA end
+abstract type diffHANNAModel <: multHANNAModel end
 
 struct diffHANNA{c<:CL.EoSModel,T,M} <: diffHANNAModel
     components::Array{String,1}
@@ -26,13 +26,12 @@ function diffHANNA(components;
 end
 
 # helper functions
-function _build_multhanna_lux(::Type{diffHANNA}, theta, alpha, phi, c; use_cache, N_NODES)
-    _cache = ifelse(use_cache, [zeros(N_NODES,1) for _ in eachindex(c)], nothing)
-    return diffHANNALux(theta, alpha, phi, _cache)
+function _build_multhanna_lux(::Type{diffHANNA}, theta, alpha, phi)
+    return diffHANNALux(theta, alpha, phi)
 end
 
-function _build_multhanna_param(::Type{diffHANNA}, emb, scaler_T, smodels, _params)
-    return multHANNAParam(emb, scaler_T, smodels, _params["Mw"])
+function _build_multhanna_param(::Type{diffHANNA}, emb, θs, scaler_T, smodels, _params)
+    return multHANNAParam(emb, θs, scaler_T, smodels, _params["Mw"])
 end
 
 # Lux layer
@@ -40,10 +39,7 @@ end
     theta
     alpha
     phi
-    __cache_θs
 end
-
-Clapeyron.is_splittable(::diffHANNALux) = false
 
 # similarity
 function calc_similarity!(similarity, model::diffHANNALux, θs)

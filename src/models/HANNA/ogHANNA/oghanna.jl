@@ -2,6 +2,7 @@ abstract type ogHANNAModel <: CL.ActivityModel end
 
 struct ogHANNAParam{T,M} <: CL.EoSParam
     emb::SingleParam{Vector{T}}
+    θs::SingleParam{Vector{T}}
     scaler_T::AbstractScaler{T}
     nn::M
     Mw::SingleParam{T}
@@ -44,7 +45,7 @@ components = ["water","isobutanol"]
 Mw = [18.01528, 74.1216]
 smiles = ["O", "CC(C)CO"]
 
-model = ogHANNA(components,userlocations=(;Mw=Mw, SMILWS=smiles))
+model = ogHANNA(components,userlocations=(;Mw=Mw, SMILES=smiles))
 # model = ogHANNA(components) # also works if components are in the database 
 ```
 
@@ -62,7 +63,6 @@ function ogHANNA(components;
         pure_userlocations = String[],
         verbose = false,
         reference_state = nothing,
-        use_cache = true
 )
     _components = CL.format_components(components)
 
@@ -88,7 +88,6 @@ function ogHANNA(components;
         Dense(N_EMB, N_NODES, silu),
         Chain(Dense(N_NODES + 2, N_NODES, silu), Dense(N_NODES, N_NODES, silu)),
         Chain(Dense(N_NODES, N_NODES, silu), Dense(N_NODES, 1)),
-        ifelse(use_cache, [zeros(N_NODES,1) for _ in eachindex(_components)], nothing)
     )
     smodel = StatefulLuxLayer(nn, ps, Lux.testmode(st))
 
@@ -98,14 +97,11 @@ function ogHANNA(components;
     end
     emb = SingleParam("ChemBERTa embedding", _components, scale.(scaler_emb, BERT.(smiles; is_canonical=true)))
 
-    # Set θ caches
-    if use_cache
-        for i in eachindex(_components)
-            smodel.model.__cache_θs[i] .= first(smodel.model.theta(emb[i], smodel.ps.theta, smodel.st.theta))
-        end
-    end
+    # Calc refined embeddings θs
+    _θs = [first(smodel.model.theta(emb[i], smodel.ps.theta, smodel.st.theta)) for i in eachindex(_components)]
+    θs = SingleParam("Refined embedding", _components, _θs)
 
-    params = ogHANNAParam(emb, scaler_T, smodel, _params["Mw"])
+    params = ogHANNAParam(emb, θs, scaler_T, smodel, _params["Mw"])
 
     _puremodel = CL.init_puremodel(puremodel, components, pure_userlocations, verbose)
     references = String["10.1039/D4SC05115G"]
@@ -120,7 +116,7 @@ function CL.excess_gibbs_free_energy(model::ogHANNA, p, T, z)
     
     params = model.params
     Ts = scale(params.scaler_T, T)
-    gE = params.nn((Ts,x,params.emb.values))
+    gE = params.nn((Ts,x,params.θs.values))
 
     return gE * Rgas(model) * T * sum(z)
 end

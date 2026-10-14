@@ -58,7 +58,7 @@ function LuxCore.initialparameters(rng::AbstractRNG, l::GATv2Conv)
     (in, ein), out = l.channel
     dense_i = LuxCore.initialparameters(rng, l.dense_i)
     dense_j = LuxCore.initialparameters(rng, l.dense_j)
-    a = l.init_weight(out, l.heads)
+    a = l.init_weight(rng, out, l.heads)
     ps = (; dense_i, dense_j, a)
     if ein > 0
         ps = (ps..., dense_e = LuxCore.initialparameters(rng, l.dense_e))
@@ -69,6 +69,8 @@ function LuxCore.initialparameters(rng::AbstractRNG, l::GATv2Conv)
     return ps
 end
 
+LuxCore.initialstates(::AbstractRNG, ::GATv2Conv) = (; training = Val(true))
+
 (l::GATv2Conv)(g, x, ps, st) = l(g, x, nothing, ps, st)
 
 function (l::GATv2Conv)(g, x, e, ps, st)
@@ -77,7 +79,8 @@ function (l::GATv2Conv)(g, x, e, ps, st)
     dense_e = l.dense_e === nothing ? nothing : 
               StatefulLuxLayer{true}(l.dense_e, ps.dense_e, _getstate(st, :dense_e))
 
-    m = (; l.add_self_loops, l.channel, l.heads, l.concat, l.dropout, l.σ, 
+    dropout = LuxOps.istraining(st) ? l.dropout : zero(l.dropout)
+    m = (; l.add_self_loops, l.channel, l.heads, l.concat, dropout, l.σ, 
            ps.a, bias = _getbias(ps), dense_i, dense_j, dense_e, l.negative_slope)
     return GNNlib.gatv2_conv(m, g, x, e), st
 end

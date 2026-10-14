@@ -1,7 +1,8 @@
-abstract type multHANNAModel <: AbstractMultHANNA end
+abstract type multHANNAModel <: CL.ActivityModel end
 
 struct multHANNAParam{T,M} <: CL.EoSParam
     emb::SingleParam{Vector{T}}
+    θs::SingleParam{Vector{Matrix{T}}}
     scaler_T::AbstractScaler{T}
     nn::M
     Mw::SingleParam{T}
@@ -123,14 +124,11 @@ function _build_multhanna(
     end
     emb = SingleParam("ChemBERTa embedding", _components, scale.(scaler_emb, BERT.(smiles; is_canonical=true)))
 
-    # Set θ caches
-    if use_cache
-        for smodel in smodels, i in eachindex(_components)
-            smodel.model.__cache_θs[i] .= first(smodel.model.theta(emb[i], smodel.ps.theta, smodel.st.theta))
-        end
-    end
+    # Calc refined embeddings θs
+    _θs = [[reshape(first(smodel.model.theta(emb[i], smodel.ps.theta, smodel.st.theta)), :, 1) for smodel in smodels] for i in eachindex(_components)]
+    θs = SingleParam("Refined embedding", _components, _θs)
 
-    params = _build_multhanna_param(MODEL, emb, scaler_T, smodels, _params)
+    params = _build_multhanna_param(MODEL, emb, θs, scaler_T, smodels, _params)
     _puremodel = CL.init_puremodel(puremodel, components, pure_userlocations, verbose)
     references = String["10.48550/arXiv.2509.06484"]
 
@@ -141,13 +139,12 @@ function _build_multhanna(
 end
 
 # helper functions
-function _build_multhanna_lux(::Type{multHANNA}, theta, alpha, phi, c; use_cache, N_NODES)
-    _cache = ifelse(use_cache, [zeros(N_NODES,1) for _ in eachindex(c)], nothing)
-    return multHANNALux(theta, alpha, phi, _cache, 100.0)
+function _build_multhanna_lux(::Type{multHANNA}, theta, alpha, phi)
+    return multHANNALux(theta, alpha, phi, 100.0)
 end
 
-function _build_multhanna_param(::Type{multHANNA}, emb, scaler_T, smodels, _params)
-    return multHANNAParam(emb, scaler_T, smodels, _params["Mw"])
+function _build_multhanna_param(::Type{multHANNA}, emb, θs, scaler_T, smodels, _params)
+    return multHANNAParam(emb, θs, scaler_T, smodels, _params["Mw"])
 end
 
 _get_ensemble(x::Colon, N) = 1:N
@@ -155,21 +152,19 @@ _get_ensemble(x::Int64, N) = x ≤ N ? [x] : error("`ensemble` must be ≤ $(N)!
 _get_ensemble(x::AbstractRange, N) = maximum(x) ≤ N ? [x] : error("`ensemble` must be ≤ $(N)!")
 
 # gE
-function CL.excess_gibbs_free_energy(model::AbstractMultHANNA, p, T, z)
+function CL.excess_gibbs_free_energy(model::multHANNAModel, p, T, z)
     x = z ./ sum(z) 
-    
     params = model.params
-    # Embeddings and RBF-Gamma
-    embs = params.emb.values
-    
-    T_scaled = scale(params.scaler_T, T) 
+    T_scaled = scale(params.scaler_T, T)
     
     # loop over all ensemble models
     gE_sum = zero(eltype(x)) 
     num_models = length(model.params.nn)
     
-    for nn in model.params.nn
-        gE_sum += nn((T_scaled, x, embs),)
+    θs = params.θs.values
+    for (i,nn) in enumerate(model.params.nn)
+        _θsi = [θ[i] for θ in θs]
+        gE_sum += nn((T_scaled, x, _θsi),)
     end
     
     gE_mean_dim_less = gE_sum / num_models

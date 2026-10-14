@@ -29,4 +29,10 @@
     @test first(saturation_temperature(model2_2, 49.404e3)) ≈ 400. rtol=1e-5
 
     @test all(isnan.(crit_pure(model2_2)))
+
+    # thioacetic acid: fixed by the RDKit-consistent conjugation/hybridization at sulfur
+    model3 = GRAPPA("thioacetic acid"; userlocations=(; SMILES=["CC(=O)S"]))
+    @test model3.params.A[1] ≈ 14.585245 rtol=1e-6
+    @test model3.params.B[1] ≈ 3150.8091 rtol=1e-6
+    @test model3.params.C[1] ≈ -49.528687 rtol=1e-6
 end

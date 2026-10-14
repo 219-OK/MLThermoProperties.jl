@@ -6,8 +6,8 @@ end
 
 function LuxCore.initialparameters(rng::AbstractRNG, layer::GraphAttentionPoolingLux)
     return (
-        query_weight = Lux.glorot_uniform(rng, layer.key_dim, layer.in_dim) ,
-        key_weight   = Lux.glorot_uniform(rng, layer.key_dim, layer.in_dim) ,
+        query_weight = Lux.glorot_uniform(rng, layer.in_dim, layer.key_dim) ,
+        key_weight   = Lux.glorot_uniform(rng, layer.in_dim, layer.key_dim) ,
         value_weight = Lux.glorot_uniform(rng, layer.in_dim, layer.in_dim) 
     )
 end
@@ -18,15 +18,13 @@ end
 
 function (layer::GraphAttentionPoolingLux)(node_out::AbstractMatrix, ps, st::NamedTuple)
     # node_out has the form: Features=32, Nodes=N
-    n_features = size(node_out, 1)
-    
     # calculate matrices
     Q = ps.query_weight' * node_out
     K = ps.key_weight' * node_out
     V = ps.value_weight' * node_out
     
     # calculate attention score (Q^T * K) / sqrt(d)
-    attn_logits = (Q' * K) ./ Float32(sqrt(n_features))
+    attn_logits = (Q' * K) ./ Float32(sqrt(size(Q, 1)))
     attention_scores = softmax(attn_logits, dims=2)
 
     context_matrix = V * attention_scores'

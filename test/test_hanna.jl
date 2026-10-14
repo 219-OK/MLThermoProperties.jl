@@ -23,6 +23,18 @@
         @test γs_i_smiles[1] ≈ γs_ref_i[1] rtol=1e-5
         @test γs_i_smiles[2] ≈ γs_ref_i[2] rtol=1e-5
     end
+
+    # reordering the components must not change the physics
+    model = ogHANNA(["water", "ethanol"])
+    permuted = only(split_model(model, [[2, 1]]))
+    direct = ogHANNA(["ethanol", "water"])
+    @test activity_coefficient(permuted, 1e5, 300., [.2,.8]) ≈
+        activity_coefficient(direct, 1e5, 300., [.2,.8]) rtol=1e-12
+
+    # pure submodels are ideal
+    pure = first(split_model(model))
+    @test activity_coefficient(pure, 1e5, 300., [1.]) ≈ [1.]
+    @test iszero(Clapeyron.excess_gibbs_free_energy(pure, 1e5, 300., [1.]))
 end
 
 @testitem "multHANNA" begin
@@ -57,17 +69,23 @@ end
     γs_1 = activity_coefficient(model_1, 1e5, 300., [0.3,0.7])
     @test γs_1[1] ≈ 1.6703794911393164 rtol=1e-5
     @test γs_1[2] ≈ 1.1610905500096025 rtol=1e-5
+
+    # issue #38
+    model_tern = multHANNA(["water", "ethanol", "methanol"]; puremodel=AntoineEqSat)
+    model_bin = multHANNA(["water", "methanol"]; puremodel=AntoineEqSat)
+    @test bubble_pressure(model_tern, 350.0, [0.5, 0.0, 0.5])[1] ≈ bubble_pressure(model_bin, 350.0, [0.5, 0.5])[1] rtol=1e-8
+    @test length(only(split_model(model_tern, [[1, 3]])).params.nn) == length(model_tern.params.nn)
 end
 
 @testitem "diffHANNA" begin
     using PythonCall, Clapeyron
 
     # Systems to test, diffHANNA γ is raw, reference γ is ln(γ)
-    systems = Dict(
+    systems = [
         ["acetone", "benzene", "methanol"]        => ([.8, .2, .0], [0.0201059933751821, 0.245555832982063, 1.06565690040588], ["CC(C)=O", "c1ccccc1", "CO"]),
         ["acetone", "benzene", "methanol"]        => ([.6, .2, .2], [0.021287452429533, 0.432258546352386, 0.664856910705566], ["CC(C)=O", "c1ccccc1", "CO"]),
         ["acetone", "benzene", "methanol"]        => ([.4, .3, .3], [0.0316174626350403, 0.482645124197006, 0.593006253242493], ["CC(C)=O", "c1ccccc1", "CO"]),
-    )
+    ]
 
     # Calculating the gammas for a given SMILES-pair and compare to Python reference
     for (system_i, (z_ref, lnγs_ref_i, smiles_i)) in systems
