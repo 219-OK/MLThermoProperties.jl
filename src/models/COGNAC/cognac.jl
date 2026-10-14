@@ -76,14 +76,12 @@ end
 function CL.lnγ_impl!(lnγ, model::COGNACModel, p, T, z)
     ν = model.groups.n_flattenedgroups
     Q = model.params.Q.values
-    # plain mod. UNIFAC Ψ: the model's soft saturation above |a/T| = 40 never triggers for
-    # the shipped checkpoints, whose worst value is 15
+    # plain mod. UNIFAC Ψ: the reference's soft saturation above |a/T| = 40 never triggers here
     Ψ = CL.Ψ(model, p, T, z)
     TT = Base.promote_eltype(Ψ, z)
     nc, ng = length(z), length(Q)
 
-    # group environments: the mixture, and one pure-component reference per molecule,
-    # defined on that molecule's own groups alone (`live`)
+    # group environments: the mixture, plus one pure-component reference per molecule (`live`)
     Θ = zeros(TT, ng)
     Θᵢ = zeros(TT, ng, nc)
     live = falses(ng, nc)

@@ -1,64 +1,220 @@
 # Molecule graphs and group tables for COGNAC
 
-const COGNAC_HYBRIDIZATION = Dict(:sp => 1, :sp2 => 2, :sp3 => 3, :sp3d => 4, :sp3d2 => 5)
 const COGNAC_BOND_AROMATIC = 4
 
 # node feature vector of an explicit polar hydrogen: Z, degree, shifted charge, hyb, aromatic, nH
 const COGNAC_H_FEATURES = (1, 1, 4, 0, 0, 0)
 
-# RDKit's hybridization code, which `MolecularGraph.hybridization` assigns only to
-# B/C/N/O/Si/P/S, so every other atom falls back to its electron domain count.
-function cognac_hybridizations(mol)
-    hybs = MolecularGraph.hybridization(mol)
-    domains = MolecularGraph.connectivity(mol) .+ MolecularGraph.lone_pair(mol)
-    return [get(COGNAC_HYBRIDIZATION, h, clamp(d - 1, 0, 5)) for (h, d) in zip(hybs, domains)]
+# outer-shell electrons per atomic number, as RDKit's `getNouterElecs` has them
+const COGNAC_NOUTER = (
+    1, 2,                                                       # H, He
+    1, 2, 3, 4, 5, 6, 7, 8,                                     # Li - Ne
+    1, 2, 3, 4, 5, 6, 7, 8,                                     # Na - Ar
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4, 5, 6, 7, 8,     # K - Kr
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4, 5, 6, 7, 8,     # Rb - Xe
+    1, 2, 3, 4,                                                 # Cs - Ce
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,                # Pr - Lu
+    4, 5, 6, 7, 8, 9, 10, 11, 2, 3, 4, 5, 6, 7, 8,              # Hf - Rn
+    1, 2, 3, 4,                                                 # Fr - Th
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,                # Pa - Lr
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,                # Rf - Og
+)
+
+# RDKit's default valences, for implicit hydrogens and a bracketed atom's radical count
+const COGNAC_VALENCES = Dict(
+    :H => (1,), :B => (3,), :C => (4,), :N => (3,), :O => (2,), :F => (1,),
+    :Al => (3,), :Si => (4,), :P => (3, 5), :S => (2, 4, 6), :Cl => (1,),
+    :Ge => (4,), :As => (3, 5), :Se => (2, 4, 6), :Br => (1,),
+    :Sn => (2, 4), :Sb => (3, 5), :Te => (2, 4, 6), :I => (1, 3, 5, 7),
+    :Pb => (2, 4), :Bi => (3, 5),
+)
+
+cognac_nouter(z) = 1 <= z <= length(COGNAC_NOUTER) ? COGNAC_NOUTER[z] : 0
+
+_other_end(edge, i) = MolecularGraph.src(edge) == i ? MolecularGraph.dst(edge) : MolecularGraph.src(edge)
+
+# hydrogens RDKit fills in to reach the smallest allowed valence covering the bond order
+function cognac_implicit_h(sym::Symbol, bond_order::Int)
+    for v in get(COGNAC_VALENCES, sym, ())
+        v >= bond_order && return v - bond_order
+    end
+    return 0
 end
 
-function cognac_molgraph(mol)
-    syms = MolecularGraph.atom_symbol(mol)
-    heavy = findall(s -> s !== :H, syms)
-    node_of = zeros(Int, length(syms))
-    node_of[heavy] .= eachindex(heavy)
+# `(bracketed, hydrogens in the bracket)` per SMILES atom, which MolecularGraph does not keep
+function cognac_smiles_atoms(smiles::AbstractString)
+    organic = ('B', 'C', 'N', 'O', 'P', 'S', 'F', 'I', 'b', 'c', 'n', 'o', 'p', 's', '*')
+    s = collect(smiles)
+    atoms = Tuple{Bool,Int}[]
+    i = 1
+    while i <= length(s)
+        if s[i] == '['
+            j = something(findnext(==(']'), s, i), length(s) + 1)
+            token = String(s[(i + 1):min(j - 1, length(s))])
+            element = match(r"^(?:\d+)?[A-Za-z][a-z]?", token)
+            rest = element === nothing ? token : token[(length(element.match) + 1):end]
+            h = match(r"H(\d*)", rest)
+            push!(atoms, (true, h === nothing ? 0 : (isempty(h[1]) ? 1 : parse(Int, h[1]))))
+            i = j + 1
+        elseif s[i] in organic
+            two = i < length(s) && ((s[i] == 'C' && s[i + 1] == 'l') || (s[i] == 'B' && s[i + 1] == 'r'))
+            push!(atoms, (false, 0))
+            i += two ? 2 : 1
+        else
+            i += 1
+        end
+    end
+    return atoms
+end
 
+# the same per MolecularGraph atom, which materialises bracket hydrogens as atoms of their own
+function cognac_atom_tokens(smiles::AbstractString, syms::Vector{Symbol})
+    aligned = Tuple{Bool,Int}[]
+    for (bracketed, h) in cognac_smiles_atoms(smiles)
+        push!(aligned, (bracketed, h))
+        append!(aligned, ((true, 0) for _ in 1:h))
+    end
+    # a SMILES the two parsers read differently falls back to "all bracketed"
+    length(aligned) == length(syms) || return [(true, 0) for _ in syms]
+    return aligned
+end
+
+# σ-domains of an atom (bonds plus lone pairs), which RDKit maps onto the hybridization
+function cognac_domains(z, charge, valence, radicals, degree)
+    z <= 1 && return degree
+    nouter = cognac_nouter(z)
+    free = max(0, nouter - valence - charge)
+    valence + nouter - charge < 8 || return degree + free ÷ 2
+    return degree + (free - radicals) ÷ 2 + radicals
+end
+
+cognac_lone_pairs(z, charge, valence) = max(0, (cognac_nouter(z) - valence - charge) ÷ 2)
+
+# a bond is conjugated if both atoms can take part, with a π system and a further neighbour
+function cognac_conjugated(neighbors, candidate, has_pi, u, v)
+    (candidate[u] && candidate[v]) || return false
+    (has_pi[u] || has_pi[v]) || return false
+    any(w -> w != v && candidate[w], neighbors[u]) && return true
+    return any(w -> w != u && candidate[w], neighbors[v])
+end
+
+# an atom can take part if it is aromatic, has an unexpanded π bond, or a free p orbital
+function cognac_candidates(syms, z, charges, valences, degrees, has_pi, aroms)
+    return [aroms[i] ||
+            (has_pi[i] && valences[i] <= first(get(COGNAC_VALENCES, syms[i], (0,)))) ||
+            (degrees[i] <= 3 && (charges[i] != 0 ||
+                (z[i] < 10 && cognac_nouter(z[i]) != 7 &&
+                 cognac_lone_pairs(z[i], charges[i], valences[i]) > 0)))
+            for i in eachindex(syms)]
+end
+
+function cognac_molgraph(mol, smiles::AbstractString)
+    syms = MolecularGraph.atom_symbol(mol)
     z = MolecularGraph.atom_number(mol)
-    degrees = heavy_degrees(mol)
-    n_hydrogens = MolecularGraph.total_hydrogens(mol)
-    hybs = cognac_hybridizations(mol)
-    aroms = MolecularGraph.is_aromatic(mol)
     charges = MolecularGraph.atom_charge(mol)
+    orders = copy(MolecularGraph.bond_order(mol))
+    edgelist = collect(MolecularGraph.edges(mol))
+    n = length(syms)
+
+    neighbors = [Int[] for _ in 1:n]
+    bonds_of = [Int[] for _ in 1:n]
+    bond_order_sum = zeros(Int, n)
+    for (b, edge) in enumerate(edgelist)
+        u, v = MolecularGraph.src(edge), MolecularGraph.dst(edge)
+        push!(neighbors[u], v); push!(neighbors[v], u)
+        push!(bonds_of[u], b); push!(bonds_of[v], b)
+        bond_order_sum[u] += orders[b]; bond_order_sum[v] += orders[b]
+    end
+
+    # H atoms RDKit keeps as graph nodes: isotopes, charged, bare or bonded to another H
+    keep = [syms[i] !== :H || MolecularGraph.props(mol, i).isotope != 0 || charges[i] != 0 ||
+            length(neighbors[i]) != 1 || syms[first(neighbors[i])] === :H for i in 1:n]
+    nodes = findall(keep)
+    node_of = zeros(Int, n)
+    node_of[nodes] .= eachindex(nodes)
+
+    # hydrogens from the bracket information the SMILES carries, plus the dropped H neighbours
+    tokens = cognac_atom_tokens(smiles, syms)
+    implicit = [tokens[i][1] ? 0 : cognac_implicit_h(syms[i], bond_order_sum[i]) for i in 1:n]
+    n_hydrogens = [implicit[i] + count(w -> !keep[w], neighbors[i]) for i in 1:n]
+    valences = bond_order_sum .+ implicit
+
+    # RDKit's `cleanUp` charge-separates a pentavalent N and an O-only hypervalent halogen
+    for i in 1:n
+        charges[i] == 0 || continue
+        nitro = syms[i] === :N && valences[i] == 5
+        halogen = syms[i] in (:Cl, :Br, :I) && valences[i] > 1 &&
+                  all(w -> syms[w] === :O || syms[w] === :H, neighbors[i])
+        (nitro || halogen) || continue
+        for b in bonds_of[i]
+            o = _other_end(edgelist[b], i)
+            (orders[b] == 2 && syms[o] === :O && charges[o] == 0) || continue
+            orders[b] = 1
+            charges[i] += 1; valences[i] -= 1; bond_order_sum[i] -= 1
+            charges[o] = -1; valences[o] -= 1; bond_order_sum[o] -= 1
+            nitro && break
+        end
+    end
+
+    # an unfilled bracketed valence becomes radical electrons rather than hydrogens
+    radicals = zeros(Int, n)
+    for i in 1:n
+        tokens[i][1] || continue
+        v = get(COGNAC_VALENCES, syms[i], ())
+        isempty(v) && continue
+        effective = cognac_nouter(z[i]) >= 4 ? first(v) + charges[i] : first(v) - charges[i]
+        radicals[i] = max(0, effective - valences[i])
+    end
+
+    # MolecularGraph misses a ring its valence model rejects, and over-marks aromatic bonds
+    written = [MolecularGraph.props(mol, i).isaromatic for i in 1:n]
+    aroms = MolecularGraph.is_aromatic(mol) .| written
+    rings = MolecularGraph.sssr(mol)
+    aromatic_rings = [r for r in rings if all(i -> aroms[i], r)]
+    in_aromatic_ring(u, v) = any(r -> u in r && v in r, aromatic_rings)
+
+    degrees = [count(w -> keep[w], neighbors[i]) + n_hydrogens[i] for i in 1:n]
+    domains = [cognac_domains(z[i], charges[i], valences[i], radicals[i], degrees[i]) for i in 1:n]
+    has_pi = [aroms[i] || any(b -> orders[b] >= 2, bonds_of[i]) for i in 1:n]
+    candidate = cognac_candidates(syms, z, charges, valences, degrees, has_pi, aroms)
+    conjugated = [cognac_conjugated(neighbors, candidate, has_pi,
+                      MolecularGraph.src(edgelist[b]), MolecularGraph.dst(edgelist[b]))
+                  for b in eachindex(edgelist)]
+
+    # sp3 with a conjugated bond is sp2 in RDKit, which is where an amide N gets its code
+    function hyb_code(i)
+        code = 2 <= domains[i] <= 6 ? domains[i] - 1 : 0
+        return code == 3 && any(b -> conjugated[b], bonds_of[i]) ? 2 : code
+    end
 
     # atoms whose hydrogens the checkpoint treats as groups of their own
-    polar = [i for i in heavy if syms[i] !== :C && n_hydrogens[i] > 0]
-    x = Matrix{Int}(undef, 6, length(heavy) + sum(i -> n_hydrogens[i], polar; init=0))
+    polar = [i for i in nodes if syms[i] !== :C && n_hydrogens[i] > 0]
+    x = Matrix{Int}(undef, 6, length(nodes) + sum(i -> n_hydrogens[i], polar; init=0))
 
-    for (j, i) in enumerate(heavy)
+    for (j, i) in enumerate(nodes)
         x[:, j] .= (
             clamp(z[i], 0, 118),
-            clamp(degrees[i] + n_hydrogens[i], 0, 7),
+            clamp(degrees[i], 0, 7),
             clamp(charges[i], -4, 4) + 4,
-            hybs[i],
+            hyb_code(i),
             aroms[i],
             i in polar ? 0 : clamp(n_hydrogens[i], 0, 5),
         )
     end
 
-    orders = MolecularGraph.bond_order(mol)
-    bond_aromatic = MolecularGraph.is_edge_aromatic(mol)
     bond_ring = MolecularGraph.is_edge_in_ring(mol)
-    bond_conj = is_conjugated(mol)
-
-    source, target = get_directed_edges(mol)
     src, tgt, e = Int[], Int[], Int[]
-    for k in eachindex(source)
-        u, v = node_of[source[k]], node_of[target[k]]
-        (u > 0 && v > 0) || continue    # bonds to hydrogens written explicitly in the SMILES
-        b = (k + 1) ÷ 2                 # `get_directed_edges` emits each bond twice
-        push!(src, u); push!(tgt, v)
-        push!(e, bond_aromatic[b] ? COGNAC_BOND_AROMATIC : orders[b], bond_conj[b], bond_ring[b])
+    for (b, edge) in enumerate(edgelist)
+        i, k = MolecularGraph.src(edge), MolecularGraph.dst(edge)
+        u, v = node_of[i], node_of[k]
+        (u > 0 && v > 0) || continue
+        order = in_aromatic_ring(i, k) ? COGNAC_BOND_AROMATIC : orders[b]
+        push!(src, u, v); push!(tgt, v, u)
+        push!(e, order, conjugated[b], bond_ring[b], order, conjugated[b], bond_ring[b])
     end
 
     # append the polar hydrogens, grouped by parent, the way RDKit's `AddHs` orders them
-    j = length(heavy)
+    j = length(nodes)
     for i in polar, _ in 1:n_hydrogens[i]
         j += 1
         x[:, j] .= COGNAC_H_FEATURES
@@ -75,8 +231,7 @@ function _relabel(keys::AbstractVector)
     return [get!(ids, k, length(ids) + 1) for k in keys]
 end
 
-# Weisfeiler-Leman classes of one molecule's atoms; atoms of one class get one embedding,
-# since a message-passing network is at most as expressive as 1-WL.
+# Weisfeiler-Leman classes of one molecule's atoms, the limit of what message passing sees
 function cognac_atom_classes(x, src, tgt, e)
     n = size(x, 2)
     nbrs = [Tuple{Int,Int}[] for _ in 1:n]
@@ -92,20 +247,23 @@ function cognac_atom_classes(x, src, tgt, e)
         color = next
     end
 
-    classes = [Int[] for _ in 1:maximum(color)]
+    classes = [Int[] for _ in 1:maximum(color; init = 0)]
     for k in 1:n
         push!(classes[color[k]], k)
     end
     return classes
 end
 
-# all molecules in one disconnected graph, with every node's molecule index and the classes
+# stereochemistry is not featurised, and dropping it avoids MolecularGraph's stereo perception
+cognac_strip_stereo(smiles::AbstractString) = replace(smiles, r"@+" => "", '/' => "", '\\' => "")
+
+# all molecules in one disconnected graph, with each node's molecule index and the classes
 function cognac_gnngraph(smiles::AbstractVector{<:AbstractString})
     xs, es, src, tgt, molecule_index = Matrix{Int}[], Matrix{Int}[], Int[], Int[], Int[]
     classes = Vector{Int}[]
     n_nodes = 0
-    for (i, s) in enumerate(smiles)
-        x, s_i, t_i, e_i = cognac_molgraph(MolecularGraph.smilestomol(s))
+    for (i, s) in enumerate(cognac_strip_stereo.(smiles))
+        x, s_i, t_i, e_i = cognac_molgraph(MolecularGraph.smilestomol(s), s)
         push!(xs, x); push!(es, e_i)
         append!(src, s_i .+ n_nodes); append!(tgt, t_i .+ n_nodes)
         append!(molecule_index, fill(i, size(x, 2)))
