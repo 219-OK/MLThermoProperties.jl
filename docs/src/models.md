@@ -46,6 +46,25 @@ On model construction, the Antoine parameters are predicted and a [`SaturationMo
 MLThermoProperties.GRAPPA
 ```
 
+## COGNAC
+
+COGNAC (local-COmposition Graph Neural network for the prediction of Activity Coefficients) predicts the group parameters of a UNIFAC model with a graph neural network instead of taking them from a fitted table [hoffmann_cognac_2026](@cite).
+In contrast to group-based UNIFAC, COGNAC treats every atom as its own group.
+Since the group table depends on the mixture, it is predicted at model construction and is valid only for that set of components.
+Symmetry-equivalent atoms of a molecule (e.g., the two hydrogens of water, the six carbons of benzene) form one group counted by ``\nu_{ki}``, just as mod. UNIFAC counts, e.g., "2 × CH3".
+
+Two variants of COGNAC are available: `COGNACexp` (or just `COGNAC`) and `COGNACimp`.
+Both variants are based on mod. UNIFAC (Dortmund): the network predicts ``R_a`` and ``Q_a`` per atom and the three interaction-polynomial coefficients ``a_{ab}``, ``b_{ab}``, and ``c_{ab}`` per atom pair. They differ only in the residual term:
+
+- `COGNACexp` (alias `COGNAC`) evaluates the group activity coefficients from the closed-form mod. UNIFAC expression.
+
+- `COGNACimp` evaluates them as the solution of the COSMOSPACE self-consistency condition, which is more accurate at infinite dilution but needs to solve an implicit equation internally.
+
+```@docs
+MLThermoProperties.COGNACexp
+MLThermoProperties.COGNACimp
+```
+
 ## ESE
 
 ![](assets/schemes/ESE_scheme.svg)

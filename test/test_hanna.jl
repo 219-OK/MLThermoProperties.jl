@@ -64,6 +64,12 @@ end
         @test γs_i_smiles[3] ≈ exp(lnγs_ref_i[3]) rtol=1e-5
     end
 
+    # No ensemble
+    model_1 = multHANNA(["ethanol", "water"]; ensemble=1)
+    γs_1 = activity_coefficient(model_1, 1e5, 300., [0.3,0.7])
+    @test γs_1[1] ≈ 1.6703794911393164 rtol=1e-5
+    @test γs_1[2] ≈ 1.1610905500096025 rtol=1e-5
+
     # issue #38
     model_tern = multHANNA(["water", "ethanol", "methanol"]; puremodel=AntoineEqSat)
     model_bin = multHANNA(["water", "methanol"]; puremodel=AntoineEqSat)
