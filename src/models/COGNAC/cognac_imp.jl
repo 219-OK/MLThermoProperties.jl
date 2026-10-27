@@ -32,18 +32,13 @@ COGNACimp(components; kwargs...) = _cognac(COGNACimp, components; kwargs...)
 - `puremodel`: model to calculate pure pressure-dependent properties
 
 ## Description
-COGNAC (COsmo-Guided Neural Activity Coefficients) model [hoffmann_cognac_2026](@cite) for
-predicting activity coefficients, implicit version.
-Identical to [`COGNACexp`](@ref) up to the residual term: the group activity coefficients
-are the solution of the COSMOSPACE self-consistency condition
+COGNAC (local-COmposition Graph Neural network for the prediction of Activity Coefficients) model [hoffmann_cognac_2026](@cite) for predicting activity coefficients, implicit version. Identical to [`COGNACexp`](@ref) except for the residual term: the group activity coefficients are obtained as the solution of the COSMOSPACE self-consistency condition
 
 ```
-lnΓₖ/Qₖ = -log(∑ₘ Θₘ exp(lnΓₘ/Qₘ) Ψₘₖ)
+lnΓₖ/Qₖ = -ln(∑ₘ Θₘ exp(lnΓₘ/Qₘ) Ψₘₖ)
 ```
 
-which is solved by damped fixed-point iteration, started from the explicit closure (the two
-are nested). This is more accurate at infinite dilution, but the parameter table alone is
-not enough to reproduce the model in a stock mod. UNIFAC implementation.
+which is solved by a damped fixed-point iteration, initialized with the explicit solution.
 
 ## Example
 ```julia
@@ -54,9 +49,6 @@ model = COGNACimp(["ethanol", "water"]; userlocations=(; SMILES=["CCO", "O"]))
 
 activity_coefficient(model, 1e5, 298.15, [0.3, 0.7])
 ```
-
-## References
-1. Hoffmann et al., to be published.
 """
 COGNACimp
 

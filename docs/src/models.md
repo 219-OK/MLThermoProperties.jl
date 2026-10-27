@@ -48,16 +48,17 @@ MLThermoProperties.GRAPPA
 
 ## COGNAC
 
-COGNAC (COsmo-Guided Neural Activity Coefficients) predicts the group parameters of a UNIFAC model with a graph neural network instead of taking them from a fitted table [hoffmann_cognac_2026](@cite).
-In contrast to groups-based UNIFAC, every atom is its own group.
-Since the group table depends on the mixture, it is predicted on model construction and is only valid for that set of components.
-Hydrogens bound to a heteroatom are separate groups, C-H hydrogens are folded into the carbon's features.
-Symmetry-equivalent atoms of a molecule (the two hydrogens of water, the six carbons of benzene) are one group counted by ``\nu_{ki}``, exactly as mod. UNIFAC counts "2 x CH3".
-Both variants are based on modified UNIFAC (Dortmund): the network predicts ``R_a``, ``Q_a`` and the three coefficients of the interaction polynomial per atom pair ``a_{ab}``, ``b_{ab}``, and ``c_{ab}``. They differ only in the residual term:
+COGNAC (local-COmposition Graph Neural network for the prediction of Activity Coefficients) predicts the group parameters of a UNIFAC model with a graph neural network instead of taking them from a fitted table [hoffmann_cognac_2026](@cite).
+In contrast to group-based UNIFAC, COGNAC treats every atom as its own group.
+Since the group table depends on the mixture, it is predicted at model construction and is valid only for that set of components.
+Symmetry-equivalent atoms of a molecule (e.g., the two hydrogens of water, the six carbons of benzene) form one group counted by ``\nu_{ki}``, just as mod. UNIFAC counts, e.g., "2 × CH3".
 
-- `COGNACexp` (aliased `COGNAC`) evaluates the group activity coefficients from the closed-form mod. UNIFAC expression, which makes its parameter table a drop-in for any mod. UNIFAC implementation.
+Two variants of COGNAC are available: `COGNACexp` (or just `COGNAC`) and `COGNACimp`.
+Both variants are based on mod. UNIFAC (Dortmund): the network predicts ``R_a`` and ``Q_a`` per atom and the three interaction-polynomial coefficients ``a_{ab}``, ``b_{ab}``, and ``c_{ab}`` per atom pair. They differ only in the residual term:
 
-- `COGNACimp` evaluates them as the solution of the COSMOSPACE self-consistency condition, which is more accurate at infinite dilution but needs the solver as well as the table.
+- `COGNACexp` (alias `COGNAC`) evaluates the group activity coefficients from the closed-form mod. UNIFAC expression.
+
+- `COGNACimp` evaluates them as the solution of the COSMOSPACE self-consistency condition, which is more accurate at infinite dilution but needs to solve an implicit equation internally.
 
 ```@docs
 MLThermoProperties.COGNACexp
