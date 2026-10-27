@@ -32,11 +32,11 @@ end
 
 ## Description
 
-ESE model for calculating diffusion coefficients at infinite dilution.
+ESE model [wagner_hybrid_2026](@cite) for calculating diffusion coefficients at infinite dilution.
 The diffusion coefficient at infinite dilution can be calculated by calling [`inf_diffusion_coefficient`](https://se-schmitt.github.io/EntropyScaling.jl/stable/).
 
 If no viscosity model is specified, a `RefpropRES` from `EntropyScaling.jl` is constructed (if possible).
-A constant viscosity model can also be used if the viscosity η is knwon as `ESE(...; vismodel=ConstantModel(Viscosity(), η))`.
+A constant viscosity model can also be used if the viscosity η is known as `ESE(...; vismodel=ConstantModel(Viscosity(), η))`.
 
 ## Examples
 ```julia

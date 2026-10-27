@@ -36,7 +36,7 @@ const HANNA = multHANNA
 - `puremodel`: model to calculate pure component properties
 
 ## Description
-Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA).
+Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA) [hoffmann_thermodynamically_2026](@cite).
 `HANNA` was trained on all available binary VLE data (up to 10 bar) and limiting activity coefficients from the Dortmund Data Bank.
 
 ## Example
@@ -50,9 +50,6 @@ smiles = ["CS(=O)C", "CCO", "CC(=O)Oc1ccccc1C(=O)O"]
 model = HANNA(components,userlocations=(;Mw=Mw, SMILES=smiles))
 # model = HANNA(components) # also works if components are in the database 
 ```
-
-## References
-1.  M. Hoffmann, T. Specht, Q. Göttl, J. Burger, S. Mandt, H. Hasse, and F. Jirasek: A Machine-Learned Expression for the Excess Gibbs Energy, (2025), DOI: https://doi.org/10.48550/arXiv.2509.06484.
 """
 multHANNA
 
