@@ -36,7 +36,7 @@ const HANNA = multHANNA
 - `puremodel`: model to calculate pure component properties
 
 ## Description
-Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA).
+Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA) [hoffmann_thermodynamically_2026](@cite).
 `HANNA` was trained on all available binary VLE data (up to 10 bar) and limiting activity coefficients from the Dortmund Data Bank.
 
 ## Example
@@ -50,9 +50,6 @@ smiles = ["CS(=O)C", "CCO", "CC(=O)Oc1ccccc1C(=O)O"]
 model = HANNA(components,userlocations=(;Mw=Mw, SMILES=smiles))
 # model = HANNA(components) # also works if components are in the database 
 ```
-
-## References
-1.  M. Hoffmann, T. Specht, Q. Göttl, J. Burger, S. Mandt, H. Hasse, and F. Jirasek: A Machine-Learned Expression for the Excess Gibbs Energy, (2025), DOI: https://doi.org/10.48550/arXiv.2509.06484.
 """
 multHANNA
 
@@ -65,17 +62,18 @@ function multHANNA(components;
         pure_userlocations = String[],
         verbose = false,
         reference_state = nothing,
+        ensemble = (:),
 )
     return _build_multhanna(
         multHANNA, components; 
-        puremodel, userlocations, pure_userlocations, verbose, reference_state
+        puremodel, userlocations, pure_userlocations, verbose, reference_state, ensemble
     )
 end
 
 # Build a multHANNA model
 function _build_multhanna(
     MODEL, components; 
-    puremodel, userlocations, pure_userlocations, verbose, reference_state
+    puremodel, userlocations, pure_userlocations, verbose, reference_state, ensemble
 )
     # loading SMILES und Parameter
     _components = CL.format_components(components)
@@ -97,6 +95,7 @@ function _build_multhanna(
     # Create model
     N_EMB = 384
     N_NODES = 96
+    _ens = _get_ensemble(ensemble, length(ps))
     
     theta = LipschitzDense(N_EMB, N_NODES, silu)
     alpha = Chain(
@@ -108,7 +107,7 @@ function _build_multhanna(
         LipschitzDense(N_NODES, 1, identity)
     )    
     nns = [_build_multhanna_lux(MODEL, theta, alpha, phi) for _ in eachindex(ps)]
-    smodels = StatefulLuxLayer.(nns, ps, Lux.testmode.(st))
+    smodels = StatefulLuxLayer.(nns[_ens], ps[_ens], Lux.testmode.(st[_ens]))
 
     # Precompute the Lipschitz-scaled weights once (inference reuses them)
     for smodel in smodels
@@ -143,6 +142,10 @@ end
 function _build_multhanna_param(::Type{multHANNA}, emb, θs, scaler_T, smodels, _params)
     return multHANNAParam(emb, θs, scaler_T, smodels, _params["Mw"])
 end
+
+_get_ensemble(x::Colon, N) = 1:N
+_get_ensemble(x::Int64, N) = x ≤ N ? [x] : error("`ensemble` must be ≤ $(N)!")
+_get_ensemble(x::AbstractRange, N) = maximum(x) ≤ N ? x : error("`ensemble` must be ≤ $(N)!")
 
 # gE
 function CL.excess_gibbs_free_energy(model::multHANNAModel, p, T, z)

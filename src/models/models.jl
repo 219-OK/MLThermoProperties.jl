@@ -4,9 +4,11 @@ include("ese.jl")
 include("HADES/hades.jl")
 include("GRAPPA/grappa.jl")
 include("HANNA/hanna.jl")
+include("COGNAC/cognac.jl")
 
 # Show method
-const MODELS = Union{GRAPPA, ogHANNA, multHANNA, ESE}
+const MODELS = Union{GRAPPA, ogHANNA, multHANNA, ESE, COGNACexp, COGNACimp}
+
 function Base.show(io::IO, ::MIME"text/plain", model::MODELS)
     print(io, nameof(typeof(model)))
     length(model) == 1 && println(io, " with 1 component:")

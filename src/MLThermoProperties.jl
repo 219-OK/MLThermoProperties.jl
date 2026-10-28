@@ -17,14 +17,15 @@ const DB_PATH = normpath(Base.pkgdir(MLThermoProperties),"database")
 
 BERT = nothing
 
+# Utils
+include("utils/bond_features.jl")
+include("utils/descriptors.jl")
+include("utils/graphs.jl")
+
 # Layers
 include("layers/layers.jl")
 
 # Models
 include("models/models.jl")
-
-# Utils
-include("utils/bond_features.jl")
-include("utils/descriptors.jl")
 
 end

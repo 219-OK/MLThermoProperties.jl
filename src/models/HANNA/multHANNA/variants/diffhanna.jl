@@ -16,10 +16,11 @@ function diffHANNA(components;
         pure_userlocations = String[],
         verbose = false,
         reference_state = nothing,
+        ensemble = (:),
 )
     return _build_multhanna(
         diffHANNA, components; 
-        puremodel, userlocations, pure_userlocations, verbose, reference_state
+        puremodel, userlocations, pure_userlocations, verbose, reference_state, ensemble
     )
 end
 
