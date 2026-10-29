@@ -33,7 +33,7 @@ end
 - `puremodel`: model to calculate pure pressure-dependent properties
 
 ## Description
-Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA v1.0.0).
+Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction (HANNA v1.0.0) [specht_hanna_2024](@cite).
 The implementation is based on [this](https://github.com/tspecht93/HANNA) Github repository.
 `ogHANNA` was trained on all available binary VLE data (up to 10 bar) and limiting activity coefficients from the Dortmund Data Bank. `ogHANNA` was only developed for binary mixtures. Use `HANNA` for multicomponent mixtures.
 
@@ -48,9 +48,6 @@ smiles = ["O", "CC(C)CO"]
 model = ogHANNA(components,userlocations=(;Mw=Mw, SMILES=smiles))
 # model = ogHANNA(components) # also works if components are in the database 
 ```
-
-## References
-1. Specht, T., Nagda, M., Fellenz, S., Mandt, S., Hasse, H., Jirasek, F., HANNA: Hard-Constraint Neural Network for Consistent Activity Coefficient Prediction. Chemical Science 2024. [10.1039/D4SC05115G](https://doi.org/10.1039/D4SC05115G).
 """
 ogHANNA
 

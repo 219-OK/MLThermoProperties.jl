@@ -28,7 +28,7 @@ end
 
 ## Description
 
-GRAPPA model for calculating vapor pressure of pure components based on the Antoine equation.
+GRAPPA model [hoffmann_grappahybrid_2025](@cite) for calculating vapor pressure of pure components based on the Antoine equation.
 On model construction, the Antoine parameters are predicted using a Python implementation the GRAPPA model.
 
 For predicting the Antoine parameters, only the smiles of the molecule is required.
@@ -45,11 +45,6 @@ model = GRAPPA("propanol"; userlocations=(; smiles="CCCO"))
 
 ps, _, _ = saturation_pressure(model, 300.)         # Vapor pressure at 300 K
 ```
-
-## References
-
-1.  M. Hoffmann, H. Hasse, and F. Jirasek: GRAPPA—A Hybrid Graph Neural Network for Predicting Pure Component Vapor Pressures, Chemical Engineering Journal Advances 22 (2025) 100750, DOI: https://doi.org/10.1016/j.ceja.2025.100750.
-
 """
 GRAPPA
 
