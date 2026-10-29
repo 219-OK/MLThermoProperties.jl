@@ -34,22 +34,15 @@ end
 
 ## Description
 
-Hybrid Architecture for consistent Diffusion-coefficient Estimation across Solvents (HADES).
-`HADES` predicts self-diffusion coefficients in liquid mixtures with an arbitrary number of components at any composition and temperature.
-It combines the Stokes-Einstein equation with a deep-set neural network that predicts a correction factor ``b_{i}``:
-
-The neural network only uses temperature-independent structural descriptors of the components (obtained from the SMILES) and the mole fractions, so the temperature dependence is described by the Stokes-Einstein equation and the viscosity.
-`HADES` was trained on self-diffusion coefficients of pure components, diffusion coefficients at infinite dilution in pure and mixed solvents, and self-diffusion coefficients at finite concentrations.
-It is applicable to organic components (molar mass < 1000 g·mol⁻¹, no atoms heavier than chlorine) and water.
+Hybrid Architecture for consistent Diffusion-coefficient Estimation across Solvents (HADES) [wagner_comp_2026](@cite).
+`HADES` predicts self-diffusion coefficients in liquid mixtures and is applicable to organic components (molar mass < 1000 g·mol⁻¹, no atoms heavier than chlorine) and water.
+It combines the Stokes-Einstein equation with a deep-set neural network.
 
 The self-diffusion coefficients of all components can be calculated by calling [`self_diffusion_coefficient`](https://se-schmitt.github.io/EntropyScaling.jl/dev/).
 
-The viscosity of the mixture ``\\eta_\\mathrm{solv}`` is obtained from `vismodel`:
+The viscosity of the mixture ``\\eta_\\mathrm{solv}`` is obtained from `vismodel` (default: `RefpropRES`):
 - If a vector of pure component viscosity models is given, the pure component viscosities are mixed logarithmically, ``\\ln \\eta_\\mathrm{solv} = \\sum_k x_k \\ln \\eta_k``, as done for the training of `HADES` (recommended).
 - If a mixture viscosity model is given, its viscosity is used directly.
-
-If no viscosity model is specified, a `RefpropRES` model from `EntropyScaling.jl` is constructed (if possible).
-Constant viscosity models can be used if the pure component viscosities ``\\eta_k`` are known, e.g. `HADES(...; vismodel=[ConstantModel(Viscosity(), η₁), ConstantModel(Viscosity(), η₂)])`.
 
 ## Example
 ```julia
@@ -62,9 +55,6 @@ vismodel = [ConstantModel(Viscosity(), η) for η in [0.00104, 0.000891, 0.00054
 model = HADES(components; userlocations=(;SMILES=smiles), vismodel)
 D_self = self_diffusion_coefficient(model, 1e5, 298.15, [0.2, 0.4, 0.4])   # in m²/s
 ```
-
-## References
-1.  J. Wagner, T. Specht, H. Hasse, and F. Jirasek: Composition-Dependent Self-Diffusion Coefficients in Liquid Mixtures from Hybrid Machine Learning, (2026), DOI: https://doi.org/10.48550/arXiv.2609.24599.
 """
 HADES
 
@@ -89,8 +79,7 @@ function HADES(components;
 
     ps, st = load(joinpath(get_model_path(HADES),"parameters_states_ensemble.jld2"), "ps", "st")
 
-    nns = [HADESLux() for _ in eachindex(ps)]
-    smodels = StatefulLuxLayer.(nns, ps, Lux.testmode.(st))
+    smodels = StatefulLuxLayer.(Ref(HADESLux()), ps, Lux.testmode.(st))
 
     # get chem data
     X = get_ese_X.(smiles)
@@ -111,9 +100,7 @@ function HADES(components;
     return HADES(_components, params, _vismodel, references)
 end
 
-
 Base.broadcastable(x::HADES) = Ref(x)
-
 
 # mixture viscosity model given -> use directly
 _mixture_viscosity(vismodel, p, T, z; phase) = viscosity(vismodel, p, T, z; phase)
@@ -125,14 +112,14 @@ end
 
 # gets all self diffusion coefficients of the mixture
 function ES.self_diffusion_coefficient(model::HADES, p, T, z; phase=:liquid)
-    TT = Base.promote_eltype(p,T,z)
     N_comps = length(model.components)
     # Initialitzing constants required for Stokes-Einstein-equation
     f = 0.64
     ϱ_ref = 1050.
     
     η_mix = _mixture_viscosity(model.vismodel, p, T, z; phase)
-    D_self = zeros(typeof(η_mix), N_comps)
+    TT = Base.promote_eltype(p,T,z,η_mix)
+    D_self = zeros(TT, N_comps)
 
     for idx_i in 1:N_comps
         M_i = model.params.Mw.values[idx_i] * 1e-3
